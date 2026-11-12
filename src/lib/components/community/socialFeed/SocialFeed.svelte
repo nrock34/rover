@@ -1,49 +1,17 @@
 <script>
-	import SocialFeedHeader from "./SocialFeedHeader.svelte";
-	import SocialFeedPosts from "./SocialFeedPosts.svelte";
-
-	let {
-		posts = [],
-		limit = 6,
-		currentPath = "/community"
-	} = $props();
-
-	let searchQuery = $state("");
-	let activeContentType = $state("all");
-	let activeFilter = $state("all");
-
-	const filters = [
-		{ id: "all", name: "All Posts" },
-		{ id: "opp", name: "Opportunities" },
-		{ id: "social", name: "Social" },
-		{ id: "academic", name: "Academic" },
-		{ id: "housing", name: "Housing" },
-		{ id: "events", name: "Events" }
-	];
-
-	const contentTypes = [
-		{ id: "all", name: "All" },
-		{ id: "discussion", name: "Discussions" },
-		{ id: "announcement", name: "Announcements" },
-		{ id: "photo", name: "Photos" },
-		{ id: "question", name: "Questions" }
-	];
+ import SocialFeedHeader from './SocialFeedHeader.svelte';
+ import SocialFeedPosts from './SocialFeedPosts.svelte';
+ import { POST_TOPIC_FILTER_OPTIONS, POST_TYPE_FILTER_OPTIONS } from './post-options.js';
+ let { posts = [], limit = 6, currentPath = '/community' } = $props();
+ let searchQuery = $state('');
+ let activeContentType = $state('all');
+ let activeFilter = $state('all');
+ const hasFilters = $derived(Boolean(searchQuery.trim()) || activeContentType !== 'all' || activeFilter !== 'all');
+ function clearFilters() { searchQuery = ''; activeContentType = 'all'; activeFilter = 'all'; }
 </script>
 
-<div class="space-y-12">
-	<SocialFeedHeader
-		{filters}
-		{contentTypes}
-		bind:activeContentType
-		bind:activeFilter
-		bind:searchQuery
-	/>
-	<SocialFeedPosts
-		{posts}
-		{limit}
-		{activeFilter}
-		{activeContentType}
-		{searchQuery}
-		{currentPath}
-	/>
-</div>
+<section class="community-feed" aria-label="Social feed">
+ <SocialFeedHeader filters={POST_TOPIC_FILTER_OPTIONS} contentTypes={POST_TYPE_FILTER_OPTIONS}
+  bind:activeContentType bind:activeFilter bind:searchQuery {hasFilters} {clearFilters} />
+ <SocialFeedPosts {posts} {limit} {activeFilter} {activeContentType} {searchQuery} {currentPath} {hasFilters} {clearFilters} />
+</section>

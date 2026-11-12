@@ -97,8 +97,18 @@ async function commentAction(event) {
 	}
 
 	const accessToken = requireValidatedAccessToken(event);
+	const postResult = await loadCommunityPostDetail(postId, {
+		fetch: event.fetch,
+		accessToken
+	});
+	if (!postResult.ok) {
+		throw error(postResult.error.status || 500, postResult.error.message);
+	}
+	if (!postResult.data.restId) {
+		throw error(502, "The post write identifier is unavailable.");
+	}
 	const result = await createCommunityPostComment(
-		postId,
+		postResult.data.restId,
 		{ content: form.data.content },
 		{ fetch: event.fetch, accessToken }
 	);

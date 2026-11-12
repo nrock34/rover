@@ -74,7 +74,7 @@ async function createPostAction(event) {
 		}, { status: 400 });
 	}
 
-	throw redirect(303, `/community/posts/${result.data.id}`);
+	throw redirect(303, `/community/posts/${result.data.documentId}`);
 }
 
 /** @type {import("@sveltejs/kit").Actions} */

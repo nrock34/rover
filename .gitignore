@@ -1,9 +1,13 @@
 node_modules
+.stfolder
 
 # Output
+docs
 .output
+output
 .vercel
 .netlify
+.playwright-cli
 .wrangler
 /.svelte-kit
 /build

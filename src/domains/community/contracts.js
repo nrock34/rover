@@ -28,7 +28,7 @@ function assertCategoryShape(value) {
  */
 export function assertPost(value) {
 	const post = assertObject(value, "post");
-	assertNumber(post.id, "post.id");
+	assertString(post.id, "post.id");
 	assertString(post.title, "post.title");
 	assertString(post.content, "post.content");
 	assertString(post.type, "post.type");
@@ -55,7 +55,9 @@ export function assertPost(value) {
  */
 export function assertComment(value) {
 	const comment = assertObject(value, "comment");
-	assertNumber(comment.id, "comment.id");
+	if (typeof comment.id !== "string" && typeof comment.id !== "number") {
+		throw createDomainError("invalid_response", 502, "comment.id must be a string or number.", comment.id);
+	}
 	assertAuthorShape(comment.author);
 	assertString(comment.content, "comment.content");
 	assertString(comment.created_at, "comment.created_at");
@@ -69,7 +71,7 @@ export function assertComment(value) {
  */
 export function assertUpdate(value) {
 	const update = assertObject(value, "update");
-	assertNumber(update.id, "update.id");
+	assertString(update.id, "update.id");
 	assertString(update.title, "update.title");
 	assertCategoryShape(update.category);
 	assertString(update.summary, "update.summary");
@@ -101,10 +103,12 @@ export function assertUpdateDetail(value) {
  */
 export function assertProgram(value) {
 	const program = assertObject(value, "program");
-	assertNumber(program.id, "program.id");
+	assertString(program.id, "program.id");
 	assertString(program.title, "program.title");
 	assertString(program.duration, "program.duration");
-	assertNumber(program.participants, "program.participants");
+	if (program.participants != null) {
+		assertNumber(program.participants, "program.participants");
+	}
 	assertObject(program.provider, "program.provider");
 	assertObject(program.location, "program.location");
 	return program;
@@ -116,7 +120,7 @@ export function assertProgram(value) {
  */
 export function assertScholarship(value) {
 	const scholarship = assertObject(value, "scholarship");
-	assertNumber(scholarship.id, "scholarship.id");
+	assertString(scholarship.id, "scholarship.id");
 	assertString(scholarship.name, "scholarship.name");
 	assertString(scholarship.summary, "scholarship.summary");
 	assertArray(scholarship.categories, "scholarship.categories");
@@ -167,11 +171,14 @@ export function assertScholarshipList(value) {
 
 /**
  * @param {unknown} value
- * @returns {{ id: number }}
+ * @returns {{ id: number; documentId: string | null }}
  */
 export function assertCreatePostResponse(value) {
 	const payload = assertObject(value, "post create response");
-	return { id: assertNumber(payload.id, "post.id") };
+	return {
+		id: assertNumber(payload.id, "post.id"),
+		documentId: typeof payload.documentId === "string" && payload.documentId ? payload.documentId : null
+	};
 }
 
 /**

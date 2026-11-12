@@ -18,7 +18,7 @@
             Get the latest scholarships, program updates, and community highlights delivered to your inbox.
         </p>
         
-        <form use:enhance method="POST" action={'?/newsletterSignup'} class="flex flex-col sm:flex-row sm:items-start gap-4 max-w-md mx-auto">
+        <form data-analytics-form="newsletter" use:enhance method="POST" action={'?/newsletterSignup'} class="flex flex-col sm:flex-row sm:items-start gap-4 max-w-md mx-auto">
             <!-- <label for="email">
                 Email:
             </label> -->

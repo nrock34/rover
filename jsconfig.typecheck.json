@@ -28,9 +28,7 @@
 		"src/lib/stores/config.svelte.js",
 		"src/hooks.server.js",
 		"src/routes/+layout.server.js",
-		"tests/core/**/*.js",
-		"tests/domains/auth/**/*.js",
-		"tests/domains/community/**/*.js"
+		"tests/unit/api-client.test.js"
 	],
 	"exclude": [
 		"node_modules/**"

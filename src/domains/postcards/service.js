@@ -1,12 +1,26 @@
 import { getApiUrl } from "../../core/env/server.js";
-import { asHttpFailure, buildApiUrl, createHttpFailureMapper } from "../../core/domain/http.js";
-import { coerceDomainError } from "../../core/domain/errors.js";
-import { requestJson } from "../../core/http/client.js";
+import { asHttpFailure, createHttpFailureMapper } from "../../core/domain/http.js";
+import { coerceDomainError, createDomainError } from "../../core/domain/errors.js";
+import { requestGraphql } from "../../core/graphql/client.js";
 import { assertPostcardDetailPayload, assertPostcardListPage } from "./contracts.js";
-import { mapPostcardCard, mapPostcardDetail } from "./mappers.js";
+import { buildPostcardDetailQuery, buildPostcardDirectoryQuery } from "./graphql.js";
+import {
+	adaptPostcardDetailEnvelope,
+	adaptPostcardDirectoryEnvelope,
+	mapPostcardCard,
+	mapPostcardDetail
+} from "./mappers.js";
 
 export const POSTCARDS_PAGE_SIZE = 12;
 const SORT_OPTIONS = new Set(["", "-updated_at", "-like_count", "-views", "-comment_count"]);
+/** @type {Record<string, string[]>} */
+const GRAPHQL_SORTS = {
+	"": ["date_published:desc", "createdAt:desc"],
+	"-updated_at": ["updatedAt:desc"],
+	"-like_count": ["like_count:desc"],
+	"-views": ["views:desc"],
+	"-comment_count": ["comment_count:desc"]
+};
 
 const postcardHttpFailureMapper = createHttpFailureMapper({
 	fallbackCode: "upstream_error",
@@ -17,13 +31,33 @@ const postcardHttpFailureMapper = createHttpFailureMapper({
 });
 
 /**
+ * @param {unknown} details
+ * @returns {string | null}
+ */
+function graphQLErrorMessage(details) {
+	if (!details || typeof details !== "object" || Array.isArray(details)) return null;
+	const errors = /** @type {Record<string, unknown>} */ (details).errors;
+	if (!Array.isArray(errors)) return null;
+	const message = errors.find((item) =>
+		item && typeof item === "object" && !Array.isArray(item) && typeof item.message === "string"
+	)?.message;
+	return typeof message === "string" && message.trim()
+		? message.replace(/\s+/gu, " ").trim().slice(0, 240)
+		: null;
+}
+
+/**
  * @param {import("../../core/http/client.js").HttpFailure} failure
  * @param {string} fallbackMessage
  * @returns {import("./types.js").PostcardDomainError}
  */
 function mapHttpFailure(failure, fallbackMessage) {
+	const mapped = postcardHttpFailureMapper(failure, { fallbackMessage });
+	const graphqlMessage = graphQLErrorMessage(failure.error.details);
 	return /** @type {import("./types.js").PostcardDomainError} */ (
-		postcardHttpFailureMapper(failure, { fallbackMessage })
+		graphqlMessage
+			? { ...mapped, message: `${mapped.message} CMS error: ${graphqlMessage}` }
+			: mapped
 	);
 }
 
@@ -64,30 +98,50 @@ export function normalizePostcardDirectoryFilters(params = {}) {
 	};
 }
 
-/**
- * @param {string | null} value
- * @param {string} apiUrl
- * @returns {number | null}
- */
-function pageNumberFromUrl(value, apiUrl) {
-	if (!value) return null;
-	try {
-		const page = Number(new URL(value, apiUrl).searchParams.get("page"));
-		return Number.isSafeInteger(page) && page > 0 ? page : null;
-	} catch {
-		return null;
-	}
+/** @returns {Record<string, unknown>} */
+function publishedArticleFilters() {
+	return {
+		published: { eq: true },
+		publication_status: { eq: "published" }
+	};
 }
 
 /**
- * @param {Record<string, string | number>} params
- * @param {typeof fetch} fetchFn
- * @param {string} apiUrl
+ * @param {import("./types.js").PostcardDirectoryFilters} filters
+ * @returns {Record<string, unknown>}
  */
-async function requestPostcardPage(params, fetchFn, apiUrl) {
-	const response = await requestJson(buildApiUrl("postcards/list", params, apiUrl), { fetchFn });
-	if (!response.ok) return response;
-	return { ...response, data: assertPostcardListPage(response.data) };
+function directoryGraphqlFilters(filters) {
+	const graphqlFilters = publishedArticleFilters();
+	if (filters.q) {
+		graphqlFilters.or = [
+			{ title: { containsi: filters.q } },
+			{ description: { containsi: filters.q } },
+			{ excerpt: { containsi: filters.q } }
+		];
+	}
+	if (filters.category) graphqlFilters.category = { name: { eqi: filters.category } };
+	if (filters.tag) graphqlFilters.tags = { name: { eqi: filters.tag } };
+	return graphqlFilters;
+}
+
+/**
+ * @param {import("./types.js").PostcardDirectoryFilters} filters
+ * @param {typeof fetch} fetchFn
+ */
+async function requestPostcardPage(filters, fetchFn) {
+	const request = buildPostcardDirectoryQuery({
+		filters: directoryGraphqlFilters(filters),
+		pagination: { page: filters.page, pageSize: POSTCARDS_PAGE_SIZE },
+		sort: GRAPHQL_SORTS[filters.sortBy],
+		status: "PUBLISHED",
+		taxonomyPagination: { page: 1, pageSize: 100 }
+	});
+	return requestGraphql({
+		fetchFn,
+		query: request.query,
+		operationName: "PostcardDirectory",
+		variables: request.variables
+	});
 }
 
 /**
@@ -99,37 +153,33 @@ export async function loadPostcardDirectoryPage(params, { fetch }) {
 	try {
 		const apiUrl = getApiUrl();
 		const filters = normalizePostcardDirectoryFilters(params);
-		/** @type {Record<string, string | number>} */
-		const apiParams = { page: filters.page, page_size: POSTCARDS_PAGE_SIZE };
-		if (filters.q) apiParams.q = filters.q;
-		if (filters.category) apiParams.category = filters.category;
-		if (filters.tag) apiParams.tag = filters.tag;
-		if (filters.sortBy) apiParams.sort_by = filters.sortBy;
-
-		const response = await requestPostcardPage(apiParams, fetch, apiUrl);
+		const response = await requestPostcardPage(filters, fetch);
 		if (!response.ok) {
 			return { ok: false, error: mapHttpFailure(asHttpFailure(response), "Failed to load postcards.") };
 		}
 
-		const results = response.data.results.map((postcard) => mapPostcardCard(postcard, { apiUrl }));
-		const categories = results.map((postcard) => postcard.category?.name ?? "").filter(Boolean);
-		const tags = results.flatMap((postcard) => postcard.tags.map((tag) => tag.name));
-		if (filters.category) categories.push(filters.category);
-		if (filters.tag) tags.push(filters.tag);
+		const envelope = adaptPostcardDirectoryEnvelope(response.data);
+		const legacyPage = assertPostcardListPage({
+			count: envelope.pageInfo.total,
+			next: envelope.pageInfo.page < envelope.pageInfo.pageCount ? `?page=${envelope.pageInfo.page + 1}` : null,
+			previous: envelope.pageInfo.page > 1 ? `?page=${envelope.pageInfo.page - 1}` : null,
+			results: envelope.nodes
+		});
+		const results = legacyPage.results.map((postcard) => mapPostcardCard(postcard, { apiUrl }));
 
 		return {
 			ok: true,
 			data: {
-				count: response.data.count,
-				page: filters.page,
+				count: legacyPage.count,
+				page: envelope.pageInfo.page,
 				pageSize: POSTCARDS_PAGE_SIZE,
-				totalPages: Math.max(1, Math.ceil(response.data.count / POSTCARDS_PAGE_SIZE)),
-				nextPage: pageNumberFromUrl(response.data.next, apiUrl),
-				previousPage: pageNumberFromUrl(response.data.previous, apiUrl),
+				totalPages: Math.max(1, envelope.pageInfo.pageCount),
+				nextPage: envelope.pageInfo.page < envelope.pageInfo.pageCount ? envelope.pageInfo.page + 1 : null,
+				previousPage: envelope.pageInfo.page > 1 ? envelope.pageInfo.page - 1 : null,
 				results,
 				filters,
-				availableCategories: [...new Set(categories)].sort((a, b) => a.localeCompare(b)),
-				availableTags: [...new Set(tags)].sort((a, b) => a.localeCompare(b))
+				availableCategories: [...new Set(envelope.categories)].sort((a, b) => a.localeCompare(b)),
+				availableTags: [...new Set(envelope.tags)].sort((a, b) => a.localeCompare(b))
 			},
 			status: response.status,
 			headers: response.headers
@@ -140,22 +190,39 @@ export async function loadPostcardDirectoryPage(params, { fetch }) {
 }
 
 /**
- * @param {number | string} postcardId
+ * @param {string} postcardId
  * @param {import("./types.js").PostcardFetchDeps} deps
  * @returns {Promise<import("./types.js").PostcardResult<import("./types.js").PostcardDetail>>}
  */
 export async function loadPostcardDetail(postcardId, { fetch }) {
 	try {
 		const apiUrl = getApiUrl();
-		const response = await requestJson(buildApiUrl(`postcards/${encodeURIComponent(String(postcardId))}`, {}, apiUrl), {
-			fetchFn: fetch
+		const request = buildPostcardDetailQuery({
+			filters: { ...publishedArticleFilters(), documentId: { eq: String(postcardId) } },
+			pagination: { page: 1, pageSize: 1 },
+			status: "PUBLISHED"
+		});
+		const response = await requestGraphql({
+			fetchFn: fetch,
+			query: request.query,
+			operationName: "PostcardDetail",
+			variables: request.variables
 		});
 		if (!response.ok) {
 			return { ok: false, error: mapHttpFailure(asHttpFailure(response), "Failed to load this postcard.") };
 		}
+		const postcard = adaptPostcardDetailEnvelope(response.data);
+		if (!postcard) {
+			return {
+				ok: false,
+				error: /** @type {import("./types.js").PostcardDomainError} */ (
+					createDomainError("not_found", 404, "Postcard not found.")
+				)
+			};
+		}
 		return {
 			ok: true,
-			data: mapPostcardDetail(assertPostcardDetailPayload(response.data), { apiUrl }),
+			data: mapPostcardDetail(assertPostcardDetailPayload(postcard), { apiUrl }),
 			status: response.status,
 			headers: response.headers
 		};
@@ -165,7 +232,7 @@ export async function loadPostcardDetail(postcardId, { fetch }) {
 }
 
 /**
- * @param {number | string} postcardId
+ * @param {string} postcardId
  * @param {import("./types.js").PostcardFetchDeps} deps
  * @returns {Promise<import("./types.js").PostcardResult<import("./types.js").PostcardDetailPage>>}
  */
@@ -176,16 +243,30 @@ export async function loadPostcardDetailPage(postcardId, { fetch }) {
 	try {
 		const apiUrl = getApiUrl();
 		const postcard = detailResult.data;
-		/** @type {Record<string, string | number>} */
-		const relatedParams = { page_size: 4 };
-		if (postcard.category?.name) relatedParams.category = postcard.category.name;
-		else if (postcard.tags[0]?.name) relatedParams.tag = postcard.tags[0].name;
-
-		const relatedResponse = await requestPostcardPage(relatedParams, fetch, apiUrl);
-		const relatedPostcards = relatedResponse.ok
-			? relatedResponse.data.results
+		const filters = /** @type {Record<string, unknown>} */ ({
+			...publishedArticleFilters(),
+			documentId: { ne: postcard.id }
+		});
+		if (postcard.category?.name) filters.category = { name: { eqi: postcard.category.name } };
+		else if (postcard.tags[0]?.name) filters.tags = { name: { eqi: postcard.tags[0].name } };
+		const request = buildPostcardDetailQuery({
+			filters,
+			pagination: { page: 1, pageSize: 3 },
+			status: "PUBLISHED"
+		});
+		const relatedResponse = await requestGraphql({
+			fetchFn: fetch,
+			query: request.query,
+			operationName: "PostcardDetail",
+			variables: request.variables
+		});
+		const relatedEnvelope = relatedResponse.ok
+			? adaptPostcardDirectoryEnvelope({ articles: /** @type {Record<string, unknown>} */ (relatedResponse.data).articles })
+			: null;
+		const relatedPostcards = relatedEnvelope
+			? relatedEnvelope.nodes
 				.map((item) => mapPostcardCard(item, { apiUrl }))
-				.filter((item) => String(item.id) !== String(postcard.id))
+				.filter((item) => item.id !== postcard.id)
 				.slice(0, 3)
 			: [];
 
@@ -196,7 +277,6 @@ export async function loadPostcardDetailPage(postcardId, { fetch }) {
 			headers: detailResult.headers
 		};
 	} catch {
-		// Related content is an enhancement and must not make a valid article unavailable.
 		return {
 			ok: true,
 			data: { postcard: detailResult.data, relatedPostcards: [] },

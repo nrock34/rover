@@ -18,7 +18,6 @@ export const GET = async ({ url, fetch }) => {
     }
 
     return json(result.data, {
-        status: result.status,
-        headers: result.headers
+        status: result.status
     });
 };

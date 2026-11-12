@@ -1,6 +1,7 @@
 import { error } from "@sveltejs/kit";
 import { loadCommunityPostsPage } from "$domains/community";
 import { getValidatedAccessToken } from "$lib/auth/server.js";
+import { contentServiceUnavailableStatus, isContentServiceUnavailable } from "$lib/server/content-service-status.js";
 
 /**
  * @param {URL} url
@@ -44,6 +45,23 @@ export async function load(event) {
 	);
 
 	if (!result.ok) {
+		if (isContentServiceUnavailable(result.error)) {
+			return {
+				postsPage: {
+					results: [],
+					nextCursor: null,
+					previousCursor: null,
+					nextUrl: null,
+					previousUrl: null
+				},
+				filters,
+				currentPath: `${event.url.pathname}${event.url.search}`,
+				previousHref: null,
+				nextHref: null,
+				contentService: contentServiceUnavailableStatus()
+			};
+		}
+
 		throw error(result.error.status || 500, result.error.message);
 	}
 

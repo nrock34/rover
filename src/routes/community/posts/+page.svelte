@@ -41,7 +41,7 @@
 	const currentSortLabel = $derived(getPostOptionLabel(POST_SORT_OPTIONS, sortBy, "Latest first"));
 </script>
 
-<div class="mx-auto w-full max-w-[84rem] px-6 py-10 sm:px-10 md:px-14 lg:py-12">
+<div class="app-shell py-10 lg:py-12">
 	<div class="space-y-6">
 		<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 			<div class="max-w-3xl space-y-2">
@@ -165,19 +165,6 @@
 
 			<aside class="space-y-4 lg:sticky lg:top-24">
 				<Card.Root class="gap-4 border-border/70 bg-card/95 p-5 shadow-sm">
-					<div class="space-y-1">
-						<p class="text-[0.7rem] font-medium uppercase tracking-[0.22em] text-primary/80">Your Content</p>
-						<h2 class="text-lg font-semibold text-foreground">Your Posts And Activity</h2>
-						<p class="text-sm text-muted-foreground">
-							Here’s where your posts and interactions will live once the API support is ready.
-						</p>
-					</div>
-					<div class="space-y-2">
-						<Button disabled variant="outline" class="w-full justify-start">Posts You Made</Button>
-						<Button disabled variant="outline" class="w-full justify-start">Posts You Liked</Button>
-						<Button disabled variant="outline" class="w-full justify-start">Posts You Commented On</Button>
-						<Button disabled variant="outline" class="w-full justify-start">Saved Posts</Button>
-					</div>
 				</Card.Root>
 			</aside>
 		</div>

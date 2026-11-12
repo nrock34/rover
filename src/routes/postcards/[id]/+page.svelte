@@ -106,7 +106,7 @@
 					</div>
 				</div>
 
-				<ArticleRenderer blocks={postcard.articleBlocks} />
+				<ArticleRenderer blocks={postcard.articleBlocks} document={postcard.editorDocument} />
 			</section>
 
 			<aside class="space-y-6 lg:sticky lg:top-24" aria-label="Postcard details">
@@ -135,7 +135,7 @@
 				<section class="rounded-xl border-2 border-ring/45 bg-secondary p-5">
 					<h2 class="text-lg font-bold text-primary">More stories, less searching</h2>
 					<p class="mt-1 text-sm leading-relaxed text-foreground/75">Get new postcards, resources, programs, and scholarships in your inbox.</p>
-					<form use:enhance method="POST" action="?/newsletterSignup" class="mt-4 grid gap-3">
+					<form data-analytics-form="newsletter" use:enhance method="POST" action="?/newsletterSignup" class="mt-4 grid gap-3">
 						<label for="postcard-newsletter" class="sr-only">Email address</label>
 						<Input id="postcard-newsletter" name="email" type="email" value={form?.email ?? ""} placeholder="you@example.com" autocomplete="email" required />
 						{#if form?.error}<p class="text-xs text-destructive" role="alert">{form.error}: {form.description}</p>{/if}

@@ -39,7 +39,7 @@
 
 /**
  * @typedef ScholarshipCard
- * @property {number} id
+ * @property {string} id
  * @property {string} title
  * @property {string} provider
  * @property {string} amount
@@ -60,6 +60,13 @@
  * @property {number | null} applicants
  * @property {number | null} awarded
  * @property {string} href
+ */
+
+/**
+ * @typedef {{
+ *   results: ScholarshipCard[];
+ *   pageInfo: { total: number; page: number; pageSize: number; pageCount: number };
+ * }} ScholarshipDirectoryPage
  */
 
 export {};
@@ -87,7 +94,7 @@ export {};
 
 /**
  * @typedef ScholarshipDetail
- * @property {number} id
+ * @property {string} id
  * @property {string} title
  * @property {string} provider
  * @property {string} amount

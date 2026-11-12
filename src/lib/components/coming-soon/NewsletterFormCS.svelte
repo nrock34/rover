@@ -9,6 +9,7 @@
 </script>
 
 <form
+    data-analytics-form="newsletter"
     use:enhance
     method="POST"
     action="?/newsletterSignup"

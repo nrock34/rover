@@ -25,7 +25,7 @@
 
 /**
  * @typedef {{
- *   id: number;
+ *   id: string;
  *   title: string;
  *   description: string;
  *   category: ResourceCategoryKey;

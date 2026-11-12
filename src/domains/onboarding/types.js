@@ -67,8 +67,8 @@
  */
 
 /**
- * The current API stores academic and global education separately. These are
- * the exact request shapes accepted by those endpoints.
+ * Legacy education-update request shapes used outside the onboarding
+ * completion endpoint.
  *
  * @typedef {{
  *   university: number;
@@ -84,7 +84,7 @@
  */
 
 /**
- * @typedef {"incomplete_draft" | "invalid_university" | "invalid_response" | "missing_env" | "upstream_error" | "network_error" | "partial_failure"} OnboardingErrorCode
+ * @typedef {"incomplete_draft" | "invalid_response" | "missing_env" | "upstream_error" | "network_error"} OnboardingErrorCode
  */
 
 /**

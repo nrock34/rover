@@ -1,5 +1,5 @@
 /**
- * @typedef {"network_error" | "upstream_http_error" | "invalid_json_response"} HttpClientErrorCode
+ * @typedef {"network_error" | "upstream_http_error" | "invalid_json_response" | "invalid_graphql_operation"} HttpClientErrorCode
  */
 
 /**

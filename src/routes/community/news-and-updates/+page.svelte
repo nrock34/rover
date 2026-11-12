@@ -82,7 +82,7 @@
 	}
 </script>
 
-<div class="page-shell mx-auto w-full px-6 py-10 sm:px-10 md:px-14 lg:py-12">
+<div class="app-shell py-10 lg:py-12">
 	<div class="max-w-3xl space-y-2">
 		<p class="text-xs font-medium uppercase tracking-[0.26em] text-primary/80">Community Archive</p>
 		<h1 class="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">News & Updates</h1>

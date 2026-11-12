@@ -1,5 +1,5 @@
 import { fail, message, superValidate } from "sveltekit-superforms";
-import { error, redirect } from "@sveltejs/kit";
+import { redirect } from "@sveltejs/kit";
 import { yup } from "sveltekit-superforms/adapters";
 import { parse as parseDevalue } from "devalue";
 import {
@@ -11,13 +11,12 @@ import {
 	listOnboardingSteps,
 	mapAcademicBackgroundStep,
 	mapGlobalBackgroundStep,
-	mapOnboardingDraftToPayload,
-	asOnboardingFailure,
-	submitOnboarding
+	mapOnboardingDraftToPayload
 } from "$domains/onboarding/index.js";
+import { asOnboardingFailure, submitOnboarding } from "$domains/onboarding/service.js";
 import { sanitizeRelativeRedirectTarget } from "$lib/auth/redirect.js";
-import { resolveApiUrl } from "../../core/env/server.js";
-import { requestJson } from "../../core/http/client.js";
+import { loadUniversityOptions } from "$lib/server/university-options.js";
+import { recordOutcome } from '$lib/server/analytics.js';
 
 /**
  * @param {FormDataEntryValue | null} value
@@ -86,16 +85,7 @@ export const load = async ({ url, fetch }) => {
 		url.searchParams.get("redirectTo"),
 		"/profile/dashboard"
 	);
-	const universityListResponse = await requestJson(resolveApiUrl("universities/selectlist"), {
-		fetchFn: fetch
-	});
-
-	if (!universityListResponse.ok) {
-		throw error(
-			universityListResponse.status || 500,
-			"Failed to load universities."
-		);
-	}
+	const universityList = await loadUniversityOptions(fetch);
 
 	return {
 		form: await superValidate(
@@ -111,7 +101,7 @@ export const load = async ({ url, fetch }) => {
 		steps: listOnboardingSteps(),
 		currentStep: getOnboardingStep("academic_background"),
 		redirectTo,
-		universityList: Array.isArray(universityListResponse.data) ? universityListResponse.data : []
+		universityList
 	};
 };
 
@@ -140,7 +130,8 @@ export const actions = {
 		};
 	},
 
-	globalBackground: async ({ request, fetch, locals, url }) => {
+	globalBackground: async (event) => {
+		const { request, fetch, locals, url } = event;
 		const formData = await request.formData();
 		const academicBackground = readAcademicPayloadFromFormData(formData);
 		const form = await superValidate(formData, yup(globalBackgroundSchema));
@@ -168,6 +159,7 @@ export const actions = {
 			);
 		}
 
+		await recordOutcome(event, 'onboarding_completed', { onboarding_status: 'completed' });
 		const requestedTarget = sanitizeRelativeRedirectTarget(
 			url.searchParams.get("redirectTo"),
 			"/profile/dashboard"

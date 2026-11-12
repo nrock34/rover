@@ -1,10 +1,7 @@
 import { asHttpFailure, buildApiUrl, createHttpFailureMapper, withBearerAuth } from "../../core/domain/http.js";
 import { coerceDomainError, createDomainError } from "../../core/domain/errors.js";
 import { requestJson } from "../../core/http/client.js";
-import {
-	mapAcademicBackgroundToEducationUpdate,
-	mapGlobalBackgroundToEducationUpdate
-} from "./mappers.js";
+import { ONBOARDED_ROLE, normalizeRoles } from "../../lib/auth/rbac.js";
 
 const onboardingHttpFailureMapper = createHttpFailureMapper({
 	fallbackCode: "upstream_error",
@@ -47,17 +44,21 @@ function mapHttpFailure(failure, message) {
 }
 
 /**
- * Saves onboarding through the two existing user-education endpoints. The
- * requests are deliberately sequential so a failure can identify exactly
- * what was persisted. The API does not expose a cross-endpoint transaction,
- * so callers receive a `partial_failure` when the second write fails.
+ * Sends the full draft to the authenticated completion endpoint. The server
+ * owns both persistence and the role grant, so a successful HTTP response is
+ * not enough unless it confirms the onboarded-member role.
  *
  * @param {import("./types.js").OnboardingPayload} payload
  * @param {import("./types.js").OnboardingSubmitDeps} deps
  * @returns {Promise<import("./types.js").OnboardingSubmitResult>}
  */
 export async function submitOnboarding(payload, { fetch, accessToken }) {
-	if (!payload.academic_background || !payload.global_background) {
+	if (
+		!payload.academic_background || !payload.global_background ||
+		!Array.isArray(payload.completed_steps) ||
+		!payload.completed_steps.includes("academic_background") ||
+		!payload.completed_steps.includes("global_background")
+	) {
 		return {
 			ok: false,
 			error: createDomainError(
@@ -68,61 +69,34 @@ export async function submitOnboarding(payload, { fetch, accessToken }) {
 		};
 	}
 
-	let educationUpdate;
 	try {
-		educationUpdate = mapAcademicBackgroundToEducationUpdate(payload.academic_background);
-	} catch (err) {
-		return {
-			ok: false,
-			error: createDomainError(
-				"invalid_university",
-				400,
-				err instanceof Error ? err.message : "Choose a valid university."
-			)
-		};
-	}
-
-	try {
-		const educationResponse = await requestJson(buildApiUrl("users/me/education"), {
-			method: "PATCH",
+		const response = await requestJson(buildApiUrl("users/me/onboarding"), {
+			method: "POST",
 			fetchFn: fetch,
 			headers: withBearerAuth(accessToken),
-			body: educationUpdate
+			body: payload
 		});
 
-		if (!educationResponse.ok) {
+		if (!response.ok) {
 			return {
 				ok: false,
 				error: mapHttpFailure(
-					asHttpFailure(educationResponse),
-					"Failed to save your academic background."
+					asHttpFailure(response),
+					"We couldn't finish onboarding. Please try again."
 				)
 			};
 		}
 
-		const globalResponse = await requestJson(buildApiUrl("users/me/gbl_education"), {
-			method: "PATCH",
-			fetchFn: fetch,
-			headers: withBearerAuth(accessToken),
-			body: mapGlobalBackgroundToEducationUpdate(payload.global_background)
-		});
-
-		if (!globalResponse.ok) {
-			const cause = mapHttpFailure(
-				asHttpFailure(globalResponse),
-				"Failed to save your global education background."
-			);
+		const data = response.data;
+		const user = data && typeof data === "object" && "user" in data ? data.user : null;
+		const rawRoles = user && typeof user === "object" && "roles" in user ? user.roles : null;
+		if (!normalizeRoles(rawRoles).includes(ONBOARDED_ROLE)) {
 			return {
 				ok: false,
 				error: createDomainError(
-					"partial_failure",
-					cause.status,
-					"Your academic background was saved, but your global education background was not. Please try again.",
-					{
-						completedSteps: ["academic_background"],
-						failedStep: "global_background",
-						cause
-					}
+					"invalid_response",
+					502,
+					"Your details were submitted, but we couldn't confirm your member access. Please try again."
 				)
 			};
 		}

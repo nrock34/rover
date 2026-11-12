@@ -1,25 +1,19 @@
-import { env } from "$env/dynamic/private";
+import { resolveApiUrl } from "../../../../core/env/server.js";
 
 /**
  * @param {string} username
+ * @param {typeof fetch} [fetchFn]
  * @returns {Promise<{ exists: boolean }>}
  */
-export const userCheck = async (username) => {
-	if (!env.API_URL) {
-		return { exists: false };
-	}
-
-	const usercheck = await fetch(`${env.API_URL}auth/username/check`, {
-		headers: {
-			"Content-Type": "application/json"
-		},
-		method: "POST",
-		body: JSON.stringify({
-			username
-		})
-	});
-	if (!usercheck.ok) {
-		return { exists: true };
-	}
-	return { exists: false };
+export const userCheck = async (username, fetchFn = fetch) => {
+    const response = await fetchFn(resolveApiUrl("auth/username/check"), {
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+        body: JSON.stringify({ username }),
+        signal: AbortSignal.timeout(5000)
+    });
+    if (!response.ok) throw new Error("Username check unavailable");
+    const result = await response.json();
+    if (typeof result?.exists !== "boolean") throw new Error("Invalid username check response");
+    return { exists: result.exists };
 };

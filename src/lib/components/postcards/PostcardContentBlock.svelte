@@ -1,4 +1,5 @@
 <script>
+	import { getBlockMarginBottom } from "./margin.js";
 	import { onDestroy, onMount } from "svelte";
 	import { Badge } from "$lib/components/ui/badge";
 	import PostcardContentBlock from "./PostcardContentBlock.svelte";
@@ -110,20 +111,15 @@
 	}
 
 	function getLayoutStyle(layoutData) {
-		if (layoutData.style?.trim()) {
-			return layoutData.style;
-		}
-
+		const style = layoutData.style ?? "two-column";
+		if (style === "three-column") return "grid-template-columns:repeat(3,minmax(0,1fr));";
+		if (style === "sidebar-left") return "grid-template-columns:minmax(10rem,.7fr) minmax(0,1.3fr);";
+		if (style === "sidebar-right") return "grid-template-columns:minmax(0,1.3fr) minmax(10rem,.7fr);";
 		const columns = layoutData.columns;
 		const widths = columns.map((column) => column.width?.trim() || "1fr");
 		return `grid-template-columns:${widths.join(" ")};`;
 	}
 
-	function getChildBlockMarginClass(block) {
-		return typeof block?.mb === "string" && block.mb.trim()
-			? block.mb.trim()
-			: "mb-5 last:mb-0";
-	}
 
 	function columnHasCustomMargins(column) {
 		return column.blocks.some((childBlock) => typeof childBlock?.mb === "string" && childBlock.mb.trim());
@@ -196,15 +192,15 @@
 	<div class="grid gap-5 md:gap-6" style={getLayoutStyle(block.data)}>
 		{#each block.data.columns as column}
 			{#if columnHasCustomMargins(column)}
-				<div class="min-w-0" style={column.style ?? undefined}>
+				<div class="min-w-0">
 					{#each column.blocks as childBlock}
-						<div class={getChildBlockMarginClass(childBlock)}>
+						<div class="mb-5 last:mb-0" style:margin-bottom={getBlockMarginBottom(childBlock.mb)}>
 							<PostcardContentBlock block={childBlock} />
 						</div>
 					{/each}
 				</div>
 			{:else}
-				<div class="min-w-0 space-y-5" style={column.style ?? undefined}>
+				<div class="min-w-0 space-y-5">
 					{#each column.blocks as childBlock}
 						<PostcardContentBlock block={childBlock} />
 					{/each}

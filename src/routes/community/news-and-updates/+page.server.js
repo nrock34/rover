@@ -1,5 +1,6 @@
 import { error } from "@sveltejs/kit";
 import { loadCommunityUpdatesPage } from "$domains/community";
+import { contentServiceUnavailableStatus, isContentServiceUnavailable } from "$lib/server/content-service-status.js";
 
 /**
  * @param {URL} url
@@ -24,6 +25,21 @@ export async function load(event) {
 	});
 
 	if (!result.ok) {
+		if (isContentServiceUnavailable(result.error)) {
+			return {
+				updatesPage: {
+					results: [],
+					nextCursor: null,
+					previousCursor: null,
+					nextUrl: null,
+					previousUrl: null
+				},
+				previousHref: null,
+				nextHref: null,
+				contentService: contentServiceUnavailableStatus()
+			};
+		}
+
 		throw error(result.error.status || 500, result.error.message);
 	}
 

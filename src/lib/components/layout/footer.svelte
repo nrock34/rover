@@ -14,7 +14,7 @@
 
 
 <footer class="footer-surface">
-    <div class="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 py-12">
+    <div class="app-shell py-12">
         <div class="flex flex-col md:flex-row justify-between md:grid-cols-2 lg:grid-cols-4 gap-8">
         <!-- {/* Brand and Description */} -->
         <div class="lg:col-span-1 md:w-[25%]">

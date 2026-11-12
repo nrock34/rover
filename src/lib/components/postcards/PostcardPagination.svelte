@@ -1,7 +1,7 @@
 <script>
 	import { ChevronLeft, ChevronRight } from "lucide-svelte";
 
-	let { currentPage = 1, totalPages = 1, filters = {} } = $props();
+	let { currentPage = 1, totalPages = 1, filters = {}, basePath = "/postcards" } = $props();
 
 	function hrefFor(pageNumber) {
 		const params = new URLSearchParams();
@@ -11,7 +11,7 @@
 		if (filters.sortBy) params.set("sort_by", filters.sortBy);
 		if (pageNumber > 1) params.set("page", String(pageNumber));
 		const query = params.toString();
-		return query ? `/postcards?${query}` : "/postcards";
+		return query ? `${basePath}?${query}` : basePath;
 	}
 
 	let visiblePages = $derived.by(() => {

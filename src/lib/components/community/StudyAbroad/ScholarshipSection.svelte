@@ -27,8 +27,8 @@
 		}
 	};
 
-	let { scholarships = [], limit = 3, cardClass = "" } = $props();
-	let selectedCategory = $state("all");
+	let { scholarships = [], limit = 3, cardClass = "", selectedCategory = $bindable("all") } = $props();
+
 
 	const filteredScholarships = $derived(
 		selectedCategory === "all"
@@ -37,22 +37,22 @@
 	);
 </script>
 
-<Card.Root class={`h-fit gap-2 ${cardClass}`.trim()}>
-	<Card.Header class="mb-0 flex items-center justify-between">
+<Card.Root class={`community-module community-opportunities ${cardClass}`.trim()}>
+	<Card.Header class="community-module-heading">
 		<div class="flex items-center gap-2">
 			<Globe class="tone-text-amber h-5 w-5" />
 			<h2 class="text-sm font-bold text-foreground sm:text-lg">Scholarships</h2>
 		</div>
-		<Button href="/scholarships" variant="ghost" class="text-primary shadow-none hover:bg-transparent hover:text-accent-foreground">
+		<Button href="/scholarships" variant="ghost" class="community-module-link">
 			<span class="flex items-center gap-1 text-xs font-medium">View All</span>
 			<ExternalLink class="h-3 w-3" />
 		</Button>
 	</Card.Header>
 
 	<Card.Content>
-		<div class="mb-4 flex flex-wrap gap-1">
+		<div class="community-module-filters">
 			{#each categories as category}
-				<Button onclick={() => (selectedCategory = category.id)} variant={selectedCategory === category.id ? "secondary" : "outline"} class="h-7 px-2 text-xs lg:text-sm">
+				<Button aria-pressed={selectedCategory === category.id} onclick={() => (selectedCategory = category.id)} variant={selectedCategory === category.id ? "secondary" : "outline"} class="community-filter-option">
 					{category.name}
 				</Button>
 			{/each}
@@ -61,7 +61,7 @@
 		<div class="space-y-3">
 			{#if filteredScholarships.length > 0}
 				{#each filteredScholarships.slice(0, limit) as scholarship (scholarship.id)}
-					<div class={`rounded-(--radius) border p-4 hover:shadow-sm ${scholarship.featured ? "tone-surface-amber" : "border-border bg-card"}`}>
+					<div class={`community-opportunity rounded-(--radius) border p-4 ${scholarship.featured ? "tone-surface-amber" : "border-border bg-card"}`}>
 							<div class="mb-2 flex flex-col items-start justify-between gap-2">
 								<div class="flex w-full items-center justify-between gap-2">
 									<h3 class="text-card-title-sm w-fit font-semibold text-foreground sm:text-sm">{scholarship.title}</h3>
@@ -119,7 +119,7 @@
 		</div>
 	</Card.Content>
 
-	<div class="mt-3 text-center">
+	<div class="community-module-footer">
 		<Button href="/scholarships">Explore All Scholarships</Button>
 	</div>
 </Card.Root>

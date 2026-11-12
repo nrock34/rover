@@ -1,118 +1,94 @@
 <script>
-    import * as Card from "$lib/components/ui/card";
-    import { Search } from "lucide-svelte";
+    import { RotateCcw, Search, SlidersHorizontal, X } from "lucide-svelte";
+    import DirectoryFilterPanel from "$lib/components/directory/DirectoryFilterPanel.svelte";
+    import { Button } from "$lib/components/ui/button";
     import { Input } from "$lib/components/ui/input";
     import * as Select from "$lib/components/ui/select";
-
-    const sortOptions = [
-        { id: 'date', name: 'Latest First' },
-        { id: 'relevance', name: 'Most Relevant' },
-        { id: 'popularity', name: 'Most Popular' }
-    ];
+    import {
+        SCHOLARSHIP_AMOUNT_OPTIONS,
+        SCHOLARSHIP_DEADLINE_OPTIONS
+    } from "./scholarship-directory.js";
 
     let {
-        selectedSort = $bindable(),
-        filters = $bindable(),
         searchQuery = $bindable(),
-        paginatedScholarships,
-        filteredScholarships,
-        categories,
-        countries
+        filters = $bindable(),
+        categoryOptions,
+        countryOptions,
+        activeFilters = [],
+        onRemove,
+        onReset
     } = $props();
 
-    let selectedCountry = $state(filters.country);
-
-    const selectedSortContent = $derived(
-        sortOptions.find((sort) => sort.id === selectedSort)?.name
-    );
-
-    const selectedCategoryContent = $derived(
-        categories.find((category) => category.id === filters.category)?.name
-    );
-
-    const selectedCountryContent = $derived(
-        countries.find((country) => country.id === selectedCountry)?.name
-    );
-
-    $effect(() => {
-        filters.country = selectedCountry;
-    });
+    const selectedCategory = $derived(categoryOptions.find((option) => option.id === filters.category)?.name ?? "All categories");
+    const selectedCountry = $derived(countryOptions.find((option) => option.id === filters.country)?.name ?? "All destinations");
+    const selectedAmount = $derived(SCHOLARSHIP_AMOUNT_OPTIONS.find((option) => option.id === filters.amount)?.name ?? "Any award amount");
+    const selectedDeadline = $derived(SCHOLARSHIP_DEADLINE_OPTIONS.find((option) => option.id === filters.deadline)?.name ?? "Any deadline");
 </script>
 
-<Card.Root class="p-4 px-8 gap-4">
-    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-1 gap-x-3">
-        <div class="flex-1 relative">
-            <p class="block text-sm">Search</p>
-            <div class="relative">
-                <div class="absolute inset-y-0 left-3 flex items-center">
-                    <Search class="w-4 h-4 text-muted-foreground" />
-                </div>
-                <Input
-                    type="text"
-                    placeholder="Search scholarships..."
-                    class="h-10 pl-10 !text-xs py-2 h-fit"
-                    value={searchQuery}
-                    oninput={(e) => {
-                        searchQuery = e.target.value;
-                    }}
-                />
+<DirectoryFilterPanel
+    title="Build a funding shortlist"
+    helper="Search first, then narrow the award and deadline."
+    variant="scholarships"
+    collapsible
+    sticky
+    activeCount={activeFilters.length}
+>
+    {#snippet icon()}<SlidersHorizontal class="size-4" aria-hidden="true" />{/snippet}
+
+    {#snippet search()}
+        <label for="scholarship-search" class="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Search funding</label>
+        <div class="relative">
+            <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-primary" aria-hidden="true" />
+            <Input
+                id="scholarship-search"
+                type="text"
+                placeholder="Award, provider, or destination"
+                class="h-12 border-foreground/20 bg-background/80 pl-10 text-base"
+                value={searchQuery}
+                oninput={(event) => searchQuery = event.target.value}
+            />
+        </div>
+    {/snippet}
+
+    {#snippet chips()}
+        {#if activeFilters.length > 0}
+            <div class="flex flex-wrap gap-2">
+                {#each activeFilters as filter (filter.key)}
+                    <button type="button" class="inline-flex items-center gap-1 border border-primary/30 bg-primary/8 px-2.5 py-1 text-xs font-semibold" onclick={() => onRemove(filter.key)}>
+                        {filter.label}<X class="size-3" aria-hidden="true" />
+                    </button>
+                {/each}
             </div>
-        </div>
-        <div class="flex-1 relative">
-            <p class="block text-sm font-medium">Category</p>
-            <Select.Root
-                type="single"
-                bind:value={filters.category}
-            >
-                <Select.Trigger class="w-full text-xs">
-                    {selectedCategoryContent}
-                </Select.Trigger>
-                <Select.Content>
-                    {#each categories as category}
-                        <Select.Item value={category.id} label={category.name} />
-                    {/each}
-                </Select.Content>
-            </Select.Root>
-        </div>
+        {/if}
+    {/snippet}
 
-        <div>
-            <p class="block text-sm font-medium">Country</p>
-            <Select.Root
-                type="single"
-                bind:value={selectedCountry}
-            >
-                <Select.Trigger class="w-full text-xs">
-                    {selectedCountryContent}
-                </Select.Trigger>
-                <Select.Content>
-                    {#each countries as country}
-                        <Select.Item value={country.id} label={country.name} />
-                    {/each}
-                </Select.Content>
-            </Select.Root>
-        </div>
+    <div class="space-y-5">
+        <Select.Root type="single" bind:value={filters.category}>
+            <Select.Label class="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Category</Select.Label>
+            <Select.Trigger class="mt-2 w-full">{selectedCategory}</Select.Trigger>
+            <Select.Content>{#each categoryOptions as option}<Select.Item value={option.id} label={option.name}>{option.name}</Select.Item>{/each}</Select.Content>
+        </Select.Root>
 
-        <div>
-            <p class="block text-sm font-medium">Sort By</p>
-            <Select.Root
-                type="single"
-                bind:value={selectedSort}
-            >
-                <Select.Trigger class="w-full text-xs">
-                    {selectedSortContent}
-                </Select.Trigger>
-                <Select.Content>
-                    {#each sortOptions as sort}
-                        <Select.Item value={sort.id} label={sort.name} />
-                    {/each}
-                </Select.Content>
-            </Select.Root>
-        </div>
+        <Select.Root type="single" bind:value={filters.country}>
+            <Select.Label class="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Destination</Select.Label>
+            <Select.Trigger class="mt-2 w-full">{selectedCountry}</Select.Trigger>
+            <Select.Content>{#each countryOptions as option}<Select.Item value={option.id} label={option.name}>{option.name}</Select.Item>{/each}</Select.Content>
+        </Select.Root>
+
+        <Select.Root type="single" bind:value={filters.amount}>
+            <Select.Label class="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Award amount</Select.Label>
+            <Select.Trigger class="mt-2 w-full">{selectedAmount}</Select.Trigger>
+            <Select.Content>{#each SCHOLARSHIP_AMOUNT_OPTIONS as option}<Select.Item value={option.id} label={option.name}>{option.name}</Select.Item>{/each}</Select.Content>
+        </Select.Root>
+
+        <Select.Root type="single" bind:value={filters.deadline}>
+            <Select.Label class="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Deadline</Select.Label>
+            <Select.Trigger class="mt-2 w-full">{selectedDeadline}</Select.Trigger>
+            <Select.Content>{#each SCHOLARSHIP_DEADLINE_OPTIONS as option}<Select.Item value={option.id} label={option.name}>{option.name}</Select.Item>{/each}</Select.Content>
+        </Select.Root>
+
+        <Button type="button" variant="ghost" class="w-full justify-start border-t border-border px-0 pt-4" onclick={onReset}>
+            <RotateCcw class="size-4" /> Reset all
+        </Button>
     </div>
-
-    <div>
-        <p class="text-sm font-medium">
-            Showing {paginatedScholarships?.length || 0} of {filteredScholarships?.length || 0} scholarships
-        </p>
-    </div>
-</Card.Root>
+</DirectoryFilterPanel>

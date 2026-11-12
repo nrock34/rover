@@ -3,7 +3,8 @@
 	import { Badge } from "$lib/components/ui/badge";
 	import { Button } from "$lib/components/ui/button";
 	import ResilientImage from "$lib/components/shared/ResilientImage.svelte";
-	import { Clock3, Heart, MessageSquareReply, Tag } from "lucide-svelte";
+	import PostLikeButton from "./PostLikeButton.svelte";
+	import { Clock3, MessageSquareReply, Tag } from "lucide-svelte";
 
 	let { post, currentPath = "/community" } = $props();
 
@@ -16,7 +17,6 @@
 			.join("") || "CM"
 	);
 
-	const likeAction = $derived(`/community/posts/${post.id}/like?redirectTo=${encodeURIComponent(currentPath)}`);
 </script>
 
 <article class="space-y-4 border-b border-border/70 pb-5">
@@ -79,12 +79,7 @@
 		{/if}
 
 		<div class="flex flex-wrap items-center gap-1">
-			<form method="POST" action={likeAction}>
-				<Button variant="ghost" class={`h-8 px-2.5 ${post.viewerLiked ? "text-destructive hover:text-destructive" : ""}`}>
-					<Heart class={`h-4 w-4 ${post.viewerLiked ? "fill-current" : ""}`} />
-					<span>{post.likes}</span>
-				</Button>
-			</form>
+			<PostLikeButton {post} {currentPath} />
 			<Button href={`${post.href}#comments`} variant="ghost" class="h-8 px-2.5">
 				<MessageSquareReply class="h-4 w-4" />
 				<span>{post.comments}</span>

@@ -1,136 +1,51 @@
 <script>
     import { Badge } from "$lib/components/ui/badge";
+    import { Button } from "$lib/components/ui/button";
     import * as Card from "$lib/components/ui/card";
-    import { getDaysUntil, getTimeAgo } from "$lib/helper-funcs/funcs";
-    import { BadgeEuro, Bookmark, Calendar, CalendarClock, CalendarSync, CalendarX, Clock, DollarSign, Eye, Heart, Link, MapPin, Star } from "lucide-svelte";
-    import { Button } from "../ui/button";
-    import { Toggle } from "../ui/toggle";
+    import ResilientImage from "$lib/components/shared/ResilientImage.svelte";
+    import { getDaysUntil } from "$lib/helper-funcs/funcs";
+    import { ArrowRight, CalendarClock, Heart, MapPin } from "lucide-svelte";
 
-    let view = 'card-view';
-    let { paginatedScholarships, categories, totalPage, userSavedScholarships } = $props();
+    let { scholarships = [] } = $props();
 
-    const updateSavedScholarships = (id) => {
-        if (!userSavedScholarships.delete(id)) {
-            userSavedScholarships.add(id);
-        }
-    };
+    const editorialImages = [
+        "/landing-test/rome-street.webp",
+        "/landing-test/community-strip.webp",
+        "/landing-test/rome-sunset.webp",
+        "/landing-test/origin-collage.webp"
+    ];
 
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'open':
-                return 'bg-green-200/35 text-green-600 border-green-600/40';
-            case 'closing-soon':
-                return 'bg-secondary/35 text-primary border-primary/30';
-            case 'closed':
-                return 'bg-destructive/10 text-destructive border-destructive/25';
-            default:
-                return '';
-        }
-    };
+    function getEditorialImage(scholarship) {
+        const key = String(scholarship.id ?? scholarship.title ?? "scholarship");
+        const hash = [...key].reduce((total, character) => total + character.charCodeAt(0), 0);
+        return editorialImages[hash % editorialImages.length];
+    }
 </script>
 
-<div class="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-6">
-    {#if view === 'card-view'}
-        {#each paginatedScholarships as scholarshipItem}
-            {@const isSelected = userSavedScholarships.has(scholarshipItem.id)}
-            {@const daysLeft = getDaysUntil(scholarshipItem.deadline)}
-            {@const deadlineLabel = scholarshipItem.deadlineLabel ?? scholarshipItem.deadline}
-
-            <Card.Root class={`py-0 gap-4 p-6 h-full tracking-tight ${scholarshipItem.featured ? 'ring-2 ring-ring/45 bg-ring/10' : ''}`}>
-                <div>
-                    <div class="flex justify-between">
-                        <div class="flex gap-x-1.5">
-                            <Badge class={`capitalize rounded-xl tracking-normal border-1 ${getStatusColor(scholarshipItem.status)} px-2.5 py-0.5 h-fit`}>
-                                {scholarshipItem.status}
-                            </Badge>
-                            <Badge class={`rounded-xl tracking-normal bg-muted text-secondary-foreground border-secondary-foreground/20 px-2.5 py-0.5 h-fit text-xs`}>
-                                <div class="flex items-center gap-x-1">
-                                    <Star class="w-3.5 h-3.5 text-yellow-400 fill-current" />
-                                    <span>{scholarshipItem.rating}</span>
-                                </div>
-                                {#if scholarshipItem.applicants}
-                                    •
-                                    <div>
-                                        {scholarshipItem.applicants}
-                                    </div>
-                                {/if}
-                            </Badge>
-                        </div>
-                        <Toggle
-                            pressed={userSavedScholarships.has(scholarshipItem.id)}
-                            onPressedChange={() => {
-                                updateSavedScholarships(scholarshipItem.id);
-                            }}
-                        >
-                            <Bookmark class="h-4 w-4" />
-                        </Toggle>
-                    </div>
-
-                    <div>
-                        <h1 class="font-semibold">{scholarshipItem.title}</h1>
-                        <p class="text-sm text-secondary-foreground/80 font-normal tracking-normal">{scholarshipItem.provider}</p>
-                    </div>
-
-                    <div class="mt-4">
-                        <p class="leading-tight tracking-normal font-normal text-sm text-foreground/90">{scholarshipItem.description}</p>
-                    </div>
-
-                    <div class="mt-4 flex-col flex gap-y-0.75">
-                        <div class="flex items-center gap-x-1.5">
-                            <DollarSign class="text-foreground/90 h-5 w-5" />
-                            <span class="text-sm font-semibold">{scholarshipItem.amount} <span class="text-secondary-foreground/80 font-medium"> / semester</span> </span>
-                        </div>
-                        <div class="flex items-center gap-x-1.5">
-                            <MapPin class="h-5 w-5 text-secondary-foreground/80" />
-                            <span class="text-sm text-foreground/90 font-normal tracking-normal">{scholarshipItem.location}</span>
-                        </div>
-                        <div class="flex items-center gap-x-1.5">
-                            <CalendarClock class="h-5 w-5 text-secondary-foreground/80" />
-                            <span class="text-sm text-foreground/90 font-normal tracking-normal items-center flex gap-x-5">
-                                <span>
-                                    {deadlineLabel}
-                                </span>
-                                <span class={`${typeof daysLeft === "number" && daysLeft < 0 ? 'text-red-900/80 font-semibold tracking-normal text-xs' : typeof daysLeft === "number" && daysLeft <= 7 ? 'text-yellow-500 font-medium' : ''}`}>
-                                    {#if daysLeft === 'TODAY'}
-                                        Deadline Today
-                                    {:else if typeof daysLeft === "number" && daysLeft > 0}
-                                        {daysLeft} days left
-                                    {:else}
-                                        Deadline Passed
-                                    {/if}
-                                </span>
-                            </span>
-                        </div>
-                    </div>
+<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 min-[84rem]:grid-cols-4">
+    {#each scholarships as scholarship (scholarship.id)}
+        {@const daysLeft = getDaysUntil(scholarship.deadline)}
+        {@const editorialImage = getEditorialImage(scholarship)}
+        <Card.Root class="group h-full gap-0 overflow-hidden rounded-lg border-[#123e72]/10 bg-white py-0 shadow-[0_3px_12px_rgb(18_62_114/0.08)] transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgb(18_62_114/0.13)] motion-reduce:transform-none motion-reduce:transition-none">
+            <div class="relative aspect-[1.8/1] overflow-hidden bg-muted">
+                <ResilientImage src={editorialImage} fallbackSrc="/landing-test/rome-sunset.webp" alt="" loading="lazy" class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.025] motion-reduce:transition-none motion-reduce:group-hover:scale-100" />
+                <div class="absolute inset-0 bg-gradient-to-t from-[#123e72]/75 via-transparent to-transparent" aria-hidden="true"></div>
+                {#if scholarship.featured}<Badge class="absolute left-2.5 top-2.5 text-[0.58rem]">Featured</Badge>{/if}
+                <span class="absolute right-2.5 top-2.5 grid size-7 place-items-center rounded-full bg-white/88 text-[#123e72] shadow-sm backdrop-blur" aria-hidden="true"><Heart class="size-4" /></span>
+                <div class="absolute inset-x-2.5 bottom-2.5 flex items-end justify-between gap-2 text-white">
+                    <div><p class="text-[0.56rem] font-medium uppercase tracking-[0.08em] text-white/75">Award</p><p class="text-base font-bold leading-none">{scholarship.amount || "Amount varies"}</p></div>
                 </div>
+            </div>
 
-                <div class="flex gap-x-1.25">
-                    {#each scholarshipItem.eligibility.slice(0,2) as requirement, idx}
-                        <Badge variant="outline" key={idx}
-                            class="text-[0.675rem] bg-background/90 h-fit px-2 py-0.25 pt-0.5">
-                            {requirement}
-                        </Badge>
-                    {/each}
-                    {#if scholarshipItem.eligibility.length > 2}
-                        <Badge variant="outline"
-                            class="text-[0.675rem] bg-background/90 h-fit px-2 py-0.25 pt-0.5">
-                            +{scholarshipItem.eligibility.length - 2} more
-                        </Badge>
-                    {/if}
-                </div>
-
-                <div class="flex items-center mt-2">
-                    <Button class="p-0 h-fit">
-                        <a
-                            class="text-xs sm:text-sm font-semibold tracking-normal p-0 py-1.5 px-2.5"
-                            href={`/scholarships/${scholarshipItem.id}`}>
-                            View Details
-                        </a>
-                    </Button>
-                </div>
-            </Card.Root>
-        {/each}
-    {:else if view === 'list-view'}
-        <p>pass</p>
-    {/if}
+            <div class="flex min-h-[12.6rem] flex-1 flex-col p-2.5">
+                <a href={scholarship.href} class="line-clamp-2 text-[0.76rem] font-bold leading-snug text-[#123e72] transition-colors hover:text-primary">{scholarship.title}</a>
+                <p class="mt-1 truncate text-[0.62rem] text-[#123e72]/58">{scholarship.provider}</p>
+                <p class="mt-1.5 line-clamp-2 text-[0.66rem] leading-[1.35] text-[#123e72]/68">{scholarship.description}</p>
+                <div class="mt-1.5 flex items-center gap-1 truncate text-[0.62rem] text-[#123e72]/58"><MapPin class="size-3 shrink-0 text-primary" /> {scholarship.location || "Multiple destinations"}</div>
+                <div class="mt-1 flex items-center gap-1 text-[0.62rem] text-[#123e72]/58"><CalendarClock class="size-3 shrink-0 text-primary" /> <span class="truncate">{scholarship.deadlineLabel ?? "Open deadline"}</span>{#if typeof daysLeft === "number" && daysLeft > 0}<span class="ml-auto shrink-0 font-semibold text-primary">{daysLeft}d</span>{/if}</div>
+                <div class="mt-2 flex min-h-5 flex-wrap gap-1">{#each scholarship.eligibility.slice(0, 2) as requirement}<Badge variant="outline" class="border-primary/15 bg-primary/5 px-1.5 py-0 text-[0.56rem] text-[#123e72]">{requirement}</Badge>{/each}</div>
+                <Button href={scholarship.href} variant="outline" size="sm" class="mt-auto h-8 w-full border-[#123e72]/22 text-[0.65rem] font-semibold text-[#123e72] hover:border-primary hover:bg-primary/5 hover:text-primary">View Scholarship <ArrowRight class="ml-auto size-3.5" /></Button>
+            </div>
+        </Card.Root>
+    {/each}
 </div>

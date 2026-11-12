@@ -1,4 +1,5 @@
 <script>
+	import { getBlockMarginBottom } from "./margin.js";
 	import * as Card from "$lib/components/ui/card";
 	import { Badge } from "$lib/components/ui/badge";
 	import { Button } from "$lib/components/ui/button";
@@ -15,11 +16,6 @@
 
 	const sourceLabel = source === "api" ? "API content" : source === "edited" ? "Edited preview" : "Mock content";
 
-	function getBlockMarginClass(block) {
-		return typeof block?.mb === "string" && block.mb.trim()
-			? block.mb.trim()
-			: "mb-5 last:mb-0";
-	}
 </script>
 
 <Card.Root class="gap-0 pt-0 overflow-hidden">
@@ -41,7 +37,7 @@
 
 	<Card.Content class="px-6 py-6">
 		{#each document.blocks as block}
-			<div class={getBlockMarginClass(block)}>
+			<div class="mb-5 last:mb-0" style:margin-bottom={getBlockMarginBottom(block.mb)}>
 				<PostcardContentBlock {block} />
 			</div>
 		{/each}

@@ -4,8 +4,7 @@ import { yup } from "sveltekit-superforms/adapters";
 
 import * as EditProfileInfoSchema from "$lib/components/forms/EditProfileInfo/schema.js";
 import * as EditProfileEducationSchema from "$lib/components/forms/EditProfileEducation/schema.js";
-import { resolveApiUrl } from "../../../core/env/server.js";
-import { requestJson } from "../../../core/http/client.js";
+import { loadUniversityOptions } from "$lib/server/university-options.js";
 import {
 	loadEditableProfileInfo,
 	loadProfileEducationSettings,
@@ -48,10 +47,8 @@ function getApiErrorMessage(details, fallback) {
 }
 /** @type {import("./$types").PageServerLoad} */
 export const load = async ({ fetch, data, locals }) => {
-	const [universityListResponse, profileInfoResult, profileEducationResult] = await Promise.all([
-		requestJson(resolveApiUrl("universities/selectlist"), {
-			fetchFn: fetch
-		}),
+	const [universityList, profileInfoResult, profileEducationResult] = await Promise.all([
+		loadUniversityOptions(fetch),
 		loadEditableProfileInfo({
 			fetch,
 			accessToken: locals.token
@@ -61,13 +58,6 @@ export const load = async ({ fetch, data, locals }) => {
 			accessToken: locals.token
 		})
 	]);
-
-	if (!universityListResponse.ok) {
-		throw error(
-			universityListResponse.status || 500,
-			getApiErrorMessage(universityListResponse.error.details, "Failed to load universities.")
-		);
-	}
 
 	if (!profileInfoResult.ok) {
 		const failure = asProfileFailure(profileInfoResult);
@@ -97,7 +87,7 @@ export const load = async ({ fetch, data, locals }) => {
 
 	return {
 		...data,
-		universityList: Array.isArray(universityListResponse.data) ? universityListResponse.data : [],
+		universityList,
 		currentAvatarUrl: profileInfoState.currentAvatarUrl,
 		editProfileInfoForm,
 		editProfileEducationForm

@@ -29,7 +29,7 @@
 
 /**
  * @typedef {{
- *   id: number;
+ *   id: string;
  *   title: string;
  *   provider: string;
  *   location: string;
@@ -52,9 +52,9 @@
 
 /**
  * @typedef {{
- *   id: number;
+ *   id: string;
  *   title: string;
- *   provider: { name: string; universityId: number | null };
+ *   provider: { name: string; universityId: string | null };
  *   location: { city: string; country: string };
  *   duration: string;
  *   cost: {
@@ -129,9 +129,19 @@
 
 /**
  * @typedef {{
+ *   countries: ProgramCountryOption[];
+ *   providers: Array<{ id: string; name: string }>;
+ *   subjects: Array<{ id: string; name: string }>;
+ *   languages: Array<{ id: string; name: string }>;
+ * }} ProgramFilterOptions
+ */
+
+/**
+ * @typedef {{
  *   next: string | null;
  *   prev: string | null;
  *   results: ProgramCard[];
+ *   pageInfo: { total: number; page: number; pageSize: number; pageCount: number };
  * }} ProgramDirectoryPage
  */
 

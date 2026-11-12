@@ -1,274 +1,92 @@
-
 <script>
-
-    import { SvelteSet } from "svelte/reactivity";
-    import * as Card from "../ui/card";
-    import { Globe, Grid, List, Map, Search } from "lucide-svelte";
-    import { Input } from "../ui/input";
+    import { ArrowRight, BookOpen, Building2, CalendarClock, Globe2, GraduationCap, Grid, Languages, List, Map, MapPin, MessageCircle } from "lucide-svelte";
+    import DirectoryFilterBar from "$lib/components/directory/DirectoryFilterBar.svelte";
+    import DirectoryFilterSelect from "$lib/components/directory/DirectoryFilterSelect.svelte";
+    import DirectorySupportRail from "$lib/components/directory/DirectorySupportRail.svelte";
     import * as Select from "../ui/select";
     import { Button } from "../ui/button";
     import * as ToggleGroup from "../ui/toggle-group";
     import GridView from "./views-types/GridView.svelte";
     import ListView from "./views-types/ListView.svelte";
     import MapView from "./views-types/MapView.svelte";
-    import { capitalize } from "$lib/helper-funcs/funcs";
-    import { onMount } from "svelte";
+    import DirectoryPagination from "$lib/components/directory/DirectoryPagination.svelte";
 
-    import Spinner from '$lib/assets/load-spinner.svg'
-    
-    let { results, next, getMoreResults, programCountries, durations,
-        sortBy = $bindable(), searchQuery = $bindable(), region = $bindable(), duration = $bindable()
-     } = $props();
-
-    const countries = [
-        { id: 'all', name: 'All Countries' },
-        ...programCountries
+    let { loading = false, results = [], pageInfo, filterOptions, filters = {}, onFilterChange, onReset, onPageChange } = $props();
+    let viewMode = $state("grid");
+    const durations = [
+        { id: "all", name: "Any term" },
+        { id: "sem", name: "Semester program" },
+        { id: "yr", name: "Full academic year" },
+        { id: "sum", name: "Summer program" },
+        { id: "brk", name: "Winter / spring break" },
+        { id: "twowks", name: "1–2 weeks" },
+        { id: "sxwks", name: "4–6 weeks" }
     ];
-
-
-    let savedPrograms = new SvelteSet();
-    let compareList = new SvelteSet();
-
-    let resultsLoading = $state(false)
-    let viewMode = $state('grid');
-    //let sortBy = $state('rating');
-    // let searchQuery = $state('');
-
-    let selectedRegionContent = $derived(countries.find((country) => country.id === region || country.name === region)?.name || 'All Countries')
-    let selectedDurationContent = $derived(durations.find((d) => d.id === duration)?.name || 'Any Duration')
-    let sortByTriggerContent = $derived(capitalize(sortBy))
-
-    async function loadNextPage() {
-        if (resultsLoading || !next) return;
-        resultsLoading = true;
-        try {
-            const data = await getMoreResults(next);
-            if (!data || !Array.isArray(data.results)) return;
-            next = data.next ?? null;
-            const knownIds = new Set(results.map((program) => program.id));
-            results = [...results, ...data.results.filter((program) => !knownIds.has(program.id))];
-        } finally {
-            resultsLoading = false;
-        }
-    }
-
-    onMount(() => {
-        const intersectionObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    void loadNextPage();
-                }
-            });
-        }, {
-            threshold: 0.1
-        })
-
-        const sentinel = document.querySelector('#bottomOfResults')
-        if (sentinel) intersectionObserver.observe(sentinel)
-        return () => intersectionObserver.disconnect();
-    })
+    const filterControls = $derived([
+        { key: "country", label: "Destination", icon: MapPin, options: [{ id: "all", name: "All destinations" }, ...filterOptions.countries.map(country => ({ id: country.name, name: country.name }))] },
+        { key: "provider", label: "Provider", icon: Building2, options: [{ id: "all", name: "All providers" }, ...filterOptions.providers] },
+        { key: "duration", label: "Term", icon: GraduationCap, options: durations },
+        { key: "subject", label: "Subject", icon: BookOpen, options: [{ id: "all", name: "All subjects" }, ...filterOptions.subjects] },
+        { key: "duration_group", label: "Duration", icon: CalendarClock, options: [{ id: "all", name: "Any duration" }, { id: "short", name: "Short term" }, { id: "semester", name: "Semester" }, { id: "summer", name: "Summer" }, { id: "year", name: "Full year" }] },
+        { key: "language", label: "Language", icon: Languages, options: [{ id: "all", name: "Any language" }, ...filterOptions.languages] },
+        { key: "listing", label: "Listing", icon: Globe2, options: [{ id: "all", name: "All programs" }, { id: "featured", name: "Featured" }, { id: "standard", name: "Standard" }] }
+    ]);
+    const sortBy = $derived(filters.sort_by || "rating");
+    const sortByTriggerContent = $derived(({ rating: "Featured", cost: "Cost", participants: "Participants", alphabetical: "A–Z" })[sortBy] ?? "Featured");
+    const activeFilterCount = $derived(filterControls.filter(control => filters[control.key] && filters[control.key] !== "all").length + (filters.q ? 1 : 0));
+    const compactLabels = { country: "Place", provider: "Org.", duration: "Term", subject: "Study", duration_group: "Length", language: "Lang.", listing: "Type" };
+    const resultStart = $derived(results.length ? (pageInfo.page - 1) * pageInfo.pageSize + 1 : 0);
+    const resultEnd = $derived(results.length ? resultStart + results.length - 1 : 0);
 </script>
 
-
-<div class="w-full">
-
-    <!-- header -->
-    
-
-    <!-- filters -->
-    <Card.Root class="p-6 py-4 gap-1 mb-8">
-        <div class="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-3">
-            <div class="col-span-2 mt-2">
-                <label class="pl-2 block text-sm font-medium text-foregorund mb-1.25">
-                    Search
-                </label>
-                <div class="relative">
-                    <Search class="absolute left-3 top-5/20 h-4 w-4 text-muted-foreground"/>
-                    <Input 
-                        type='text'
-                        placeholder='Search for programs...'
-                        value={searchQuery}
-                        oninput={(e) => searchQuery = e.target.value}
-                        class="pl-10 py-1.5 h-fit w-full text-xs ">
-                    </Input>
+<div>
+    <DirectoryFilterBar activeCount={activeFilterCount} {onReset}>
+        {#each filterControls as control (control.key)}
+            <DirectoryFilterSelect label={control.label} compactLabel={compactLabels[control.key]} icon={control.icon} options={control.options} value={filters[control.key] || "all"} onValueChange={value => onFilterChange(control.key, value)} />
+        {/each}
+    </DirectoryFilterBar>
+    <div class="mt-4 grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_18rem]">
+        <section aria-busy={loading} aria-labelledby="directory-results-heading" class="min-w-0 rounded-xl border border-[#123e72]/10 bg-white p-4 shadow-[0_5px_18px_rgb(18_62_114/0.06)]">
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <p id="directory-results-heading" tabindex="-1" class="scroll-mt-28 text-xs text-[#123e72]/65" role="status">{#if loading}Updating programs…{:else}Showing <strong class="text-[#123e72]">{resultStart}–{resultEnd}</strong> of <strong class="text-[#123e72]">{pageInfo.total}</strong> programs{/if}</p>
+                <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <span class="text-xs text-[#123e72]/55">Sort by</span>
+                    <Select.Root type="single" value={sortBy} onValueChange={value => onFilterChange("sort_by", value)}><Select.Trigger aria-label="Sort programs" class="h-9 min-w-32 border-[#123e72]/10 bg-white text-xs text-[#123e72]">{sortByTriggerContent}</Select.Trigger><Select.Content><Select.Group><Select.Item label="Featured" value="rating" /><Select.Item label="Cost" value="cost" /><Select.Item label="Participants" value="participants" /><Select.Item label="A–Z" value="alphabetical" /></Select.Group></Select.Content></Select.Root>
+                    <ToggleGroup.Root variant="outline" type="single" bind:value={viewMode} class="hidden sm:flex"><ToggleGroup.Item aria-label="Grid view" value="grid"><Grid class="size-4" /></ToggleGroup.Item><ToggleGroup.Item aria-label="List view" value="list"><List class="size-4" /></ToggleGroup.Item><ToggleGroup.Item aria-label="Map view" value="map"><Map class="size-4" /></ToggleGroup.Item></ToggleGroup.Root>
                 </div>
             </div>
 
-            <!--  country/region filter  -->
-            <div class="lg:col-span-2">
-                <!-- <label class="block text-sm font-medium text-foreground mb-2">Region</label> -->
-                <Select.Root type='single' bind:value={region}>
-                    <Select.Label class="text-sm font-medium text-foreground">
-                        Region
-                    </Select.Label>
-                    <Select.Trigger class="min-h-fit !text-xs w-full">
-                        {selectedRegionContent}
-                    </Select.Trigger>
-                    <Select.Content class="!max-h-70 px-1.5 py-1 gap-y-2">
-                        {#each countries as country}
-                            <Select.Item class="flex justify-between" label={country.name} value={country.id === 'all' ? country.id : country.name}>
-                                <span>{country.name}</span>
-                                <span class="text-xs pr-2 font-light text-secondary-foreground">{country?.count}</span>
-                            </Select.Item>
-                        {/each}
-                    </Select.Content>
-                    
-                </Select.Root>
-            </div>
+            {#if results.length > 0}
+                {#if viewMode === "grid"}<GridView {durations} sortedPrograms={results} />{:else if viewMode === "list"}<ListView {durations} sortedPrograms={results} />{:else}<MapView programs={results} />{/if}
+            {:else}
+                <div class="grid min-h-56 place-items-center rounded-lg border border-dashed border-[#123e72]/15 text-center"><div><h3 class="text-lg font-semibold text-[#123e72]">No programs match those filters</h3><p class="mt-2 text-sm text-muted-foreground">Try widening your search or resetting filters.</p></div></div>
+            {/if}
 
-            <!-- duration filter -->
-            <div class="lg:col-span-2">
-                <Select.Root class="w-full" type='single' bind:value={duration}>
-                    <Select.Label class="text-sm font-medium text-foreground">
-                        Duration
-                    </Select.Label>
-                    <Select.Trigger class="min-h-fit !text-xs w-full">
-                        {selectedDurationContent}
-                    </Select.Trigger>
-                    <Select.Content>
-                        {#each durations as durationOption}
-                            <Select.Item value={durationOption.id} label={durationOption.name}>
-                                {durationOption.name}
-                            </Select.Item>
-                        {/each}
-                    </Select.Content>
-                    
-                </Select.Root>
-            </div>
-        </div>
+            <DirectoryPagination {pageInfo} {loading} {onPageChange} />
+        </section>
 
-
-        <div class="flex sm:flex-row justify-between items-start sm:items-center gap-4">
-            <!-- sort by -->
-            <div class="flex items-center space-x-2.5">
-                <div class="flex items-center space-x-0.5">
-                    <Select.Root type="single" bind:value={sortBy}>
-                        <Select.Label class="text-sm font-medium text-foreground">
-                            Sort By:
-                        </Select.Label>
-                        <Select.Trigger class="!min-h-fit !text-xs">
-                            {sortByTriggerContent}
-                        </Select.Trigger>
-                        <Select.Content>
-                            <Select.Item label={"Rating"} value={'rating'}/>
-                            <Select.Item label={"Cost"} value={'cost'}/>
-                            <Select.Item label={"Participants"} value={'participants'}/>
-                            <Select.Item label={"A-z"} value={'alphabetical'}/>
-                        </Select.Content>
-                        
-                    </Select.Root>
+        <DirectorySupportRail label="Program planning resources">
+            <div class="rounded-xl border border-[#123e72]/10 bg-white p-5 shadow-[0_5px_18px_rgb(18_62_114/0.06)]">
+                <h3 class="font-display text-lg font-semibold text-[#123e72]">Where will you go?</h3>
+                <div class="relative my-4 grid h-28 place-items-center overflow-hidden rounded-lg bg-[#eef3f8]">
+                    <Globe2 class="size-20 text-[#123e72]/16" />
+                    <span class="absolute left-[27%] top-[42%] size-2 rounded-full bg-primary shadow-[0_0_0_4px_rgb(217_93_50/0.12)]"></span>
+                    <span class="absolute left-[50%] top-[55%] size-2 rounded-full bg-primary shadow-[0_0_0_4px_rgb(217_93_50/0.12)]"></span>
+                    <span class="absolute right-[23%] top-[38%] size-2 rounded-full bg-primary shadow-[0_0_0_4px_rgb(217_93_50/0.12)]"></span>
                 </div>
-
-                <div class="text-sm text-muted-foreground">
-                    {results?.length ?? 0} programs found
-                </div>
+                <Button href="/programs" variant="ghost" class="h-auto px-0 text-xs text-primary">View all destinations <ArrowRight class="size-4" /></Button>
             </div>
-
-            <!-- view select -->
-            <div class="flex items-center space-x-2">
-                <span class="text-sm font-medium text-foreground">View:</span>
-                <div class="flex">
-                    <ToggleGroup.Root variant="outline" type="single" bind:value={viewMode}>
-                        <ToggleGroup.Item
-							aria-label="Grid view"
-                            class={`${viewMode === 'grid' ? 
-                            'bg-primary text-primary-foreground' : 
-                            'bg-backround text-foreground hover:bg-muted-foreground/30'}`}
-                            value="grid"
-                        >
-                            <Grid class="h-4 w-4"/>
-                        </ToggleGroup.Item>
-                        <ToggleGroup.Item
-							aria-label="List view"
-                            class={`${viewMode === 'list' ? 
-                            'bg-primary text-primary-foreground' : 
-                            'bg-backround text-foreground hover:bg-muted-foreground/30'}`}
-                            value="list"
-                        >
-                            <List class="h-4 w-4"/>
-                        </ToggleGroup.Item>
-                        <ToggleGroup.Item class={`${viewMode === 'map' ? 
-                            'bg-primary text-primary-foreground' : 
-                            'bg-backround text-foreground hover:bg-muted-foreground/30'}`} 
-                            value="map"
-							aria-label="Map view"
-                        >
-                            <Map class="h-4 w-4"/>
-                        </ToggleGroup.Item>
-                    </ToggleGroup.Root>
-                </div>
+            <div class="rounded-xl border border-[#123e72]/10 bg-white p-5 shadow-[0_5px_18px_rgb(18_62_114/0.06)]">
+                <MessageCircle class="size-6 text-primary" />
+                <p class="mt-3 text-sm leading-5 text-[#123e72]/72">“Study abroad gave me confidence, lifelong friends, and a new perspective on the world.”</p>
+                <div class="mt-4 flex items-center gap-3"><div class="grid size-10 place-items-center rounded-full bg-primary/12 text-xs font-bold text-primary">RM</div><div><p class="text-xs font-semibold text-[#123e72]">RomeWithMe community</p><p class="text-[0.66rem] text-[#123e72]/55">Student stories</p></div></div>
             </div>
-        </div>
-    </Card.Root>
-
-    <!-- compare bar -->
-    {#if compareList.size > 0}
-        <Card.Root class="p-4 mb-6 bg-primary/5 border-primary/20">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-4">
-                    <span class="font-medium text-foreground">
-                        Comparing {compareList.size} programs
-                    </span>
-                    <div class="flex space-x-2">
-                        {#each compareList as id}
-                            {@const program = results.find(p => p.id === id)}
-                            <span class="text-xs">
-                                {program?.title}
-                            </span>
-                        {/each}
-                    </div>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <Button disabled class="text-sm">
-                        Compare Programs
-                    </Button>
-                    <Button
-                        onclick={() => compareList.clear()}
-                        class="text-sm"
-                        variant="secondary"
-                    >
-                        Clear All
-                    </Button>
-                </div>
+            <div class="rounded-xl border border-[#123e72]/10 bg-white p-5 shadow-[0_5px_18px_rgb(18_62_114/0.06)]">
+                <GraduationCap class="size-7 text-primary" />
+                <h3 class="mt-3 text-sm font-semibold text-[#123e72]">Scholarships available</h3>
+                <p class="mt-1 text-xs leading-5 text-[#123e72]/65">Find funding that fits your program.</p>
+                <Button href="/scholarships" variant="ghost" class="mt-2 h-auto px-0 text-xs text-primary">Explore scholarships <ArrowRight class="size-4" /></Button>
             </div>
-        </Card.Root>
-    {/if}
-
-
-    <!-- Display programs -->
-    <div class="flex-1 min-w-0 w-full ">
-        {#if viewMode === 'grid'}
-            <GridView 
-                bind:savedPrograms = {savedPrograms} 
-                bind:compareList = {compareList}
-                {durations}
-                sortedPrograms={results}/>
-        {:else if viewMode === 'list'}
-            <ListView
-                {durations}
-                bind:savedPrograms = {savedPrograms} 
-                bind:compareList = {compareList}
-                sortedPrograms={results}/>
-        {:else if viewMode === 'map'}
-            <MapView programs={results} />
-        {/if}
+        </DirectorySupportRail>
     </div>
-
-    {#if results?.length === 0}
-
-        <div class="text-center py-12">
-            <Globe class="h-12 w-12 text-muted-foreground mx-auto mb-4"/>
-            <h3 class="text-lg font-medium text-foreground mb-2">No Programs Found</h3>
-            <p class="text-muted-foreground">Try adjusting your filters or search terms</p>
-        </div>
-        
-    {/if}
-
-    <div class="py-10 mx-auto justify-self-center" id="bottomOfResults">
-        {#if resultsLoading && !(viewMode === 'map')}
-            <img src={Spinner} alt="Loading more programs" class="h-8 w-8" />
-        {/if}
-    </div>
-
-
 </div>

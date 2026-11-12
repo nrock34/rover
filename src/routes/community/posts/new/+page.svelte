@@ -8,7 +8,7 @@
 	let { data } = $props();
 </script>
 
-<div class="page-shell mx-auto w-full px-6 py-10 sm:px-10 md:px-14 lg:py-12">
+<div class="app-shell py-10 lg:py-12">
 	<div class="space-y-3">
 		<Button href="/community/posts" variant="ghost" class="w-fit">
 			<ArrowLeft class="h-4 w-4" />

@@ -6,7 +6,7 @@
     import { LogIn, LogOut, Settings2, UserRound, UserRoundPlus } from "lucide-svelte";
     import { getAccountMenuItems, getViewerDisplayName, getViewerInitials } from "./account-menu.js";
 
-    let { viewer } = $props();
+    let { viewer, variant = "default" } = $props();
 
     const isAuthenticated = $derived(Boolean(viewer?.isAuthenticated));
     const displayName = $derived(getViewerDisplayName(viewer));
@@ -29,15 +29,15 @@
                 {...props}
                 variant="ghost"
                 size="icon"
-                class="size-12 rounded-2xl border border-border/70 bg-background/80 shadow-sm transition hover:bg-background"
+                class={`size-12 rounded-2xl border shadow-sm transition ${variant === "dark" ? "border-white/25 bg-white/8 text-white hover:bg-white/15" : "border-border/70 bg-background/80 hover:bg-background"}`}
                 aria-label="Account menu"
             >
                 <Avatar.Root class="size-9">
                     {#if viewer?.avatar}
                         <Avatar.Image src={viewer.avatar} alt={displayName} />
                     {/if}
-                    <Avatar.Fallback class="bg-primary/2 rounded-2xl text-sm font-semibold text-foreground">
-                        <UserRound class="size-5 text-foreground" />
+                    <Avatar.Fallback class={`rounded-2xl text-sm font-semibold ${variant === "dark" ? "bg-white/10 text-white" : "bg-primary/2 text-foreground"}`}>
+                        <UserRound class={`size-5 ${variant === "dark" ? "text-white" : "text-foreground"}`} />
                     </Avatar.Fallback>
                 </Avatar.Root>
             </Button>

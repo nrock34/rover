@@ -59,10 +59,12 @@
 		"@sentry/sveltekit": "^10.11.0",
 		"@unpic/svelte": "^1.0.0",
 		"compressorjs": "^1.2.1",
+		"gql-query-builder": "^4.0.1",
 		"jsonwebtoken": "^9.0.2",
 		"jwt-decode": "^4.0.0",
 		"lucide-svelte": "^0.525.0",
 		"yup": "^1.6.1",
-		"yup-password": "^0.4.0"
+		"yup-password": "^0.4.0",
+		"@nrock/umami-svelte": "file:vendor/nrock-umami-svelte-0.1.2.tgz"
 	}
 }

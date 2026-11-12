@@ -1,7 +1,7 @@
 import { message, superValidate } from "sveltekit-superforms"
 import { yup } from "sveltekit-superforms/adapters"
 import { schema } from "$lib/components/forms/auth/login-schema.js"
-import { error, redirect } from "@sveltejs/kit"
+import { redirect } from "@sveltejs/kit"
 import { loginUser, mapLoginFormData, passRefreshTokenCookie, setSignedAccessCookie } from "$domains/auth/index.js"
 import { sanitizeRelativeRedirectTarget } from "$lib/auth/redirect.js"
 
@@ -33,7 +33,7 @@ export const actions = {
         const form = await superValidate(formData, yup(schema))
 
         if (!form.valid) {
-            return message(form, 'invalid form')
+            return message(form, { msg: "Please check the highlighted fields." }, { status: 400 })
         }
 
         const payload = mapLoginFormData(form.data)
@@ -45,7 +45,7 @@ export const actions = {
             if (failure.error.code === "invalid_creds") {
                 return message(form, {
                     error: "invalid_creds",
-                    msg: "The information provided doesn't match that of any user."
+                    msg: "The email or password is incorrect. Please try again."
                 }, {status: 403})
             }
             if (failure.error.code === "disabled_acct") {
@@ -54,7 +54,9 @@ export const actions = {
                     msg: "This account is disabled, contact us if you believe this to be an error."
                 }, {status: 405})
             }
-            throw error(failure.error.status, failure.error.message)
+            return message(form, {
+                msg: "We couldn't sign you in right now. Please try again."
+            }, { status: 503 })
         }
 
         const isHttps = url?.protocol === 'https:';

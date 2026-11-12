@@ -2,7 +2,7 @@ import { getSetCookieValues, parseSetCookieHeader } from "../../core/cookies/set
 import { signCookieValue, verifySignedCookieValue } from "../../core/cookies/signed-cookie.js";
 
 export const ACCESS_COOKIE_NAME = "acs_tkn";
-export const REFRESH_COOKIE_NAME = "rfh_tkn";
+export const REFRESH_COOKIE_NAME = "rwm_refresh";
 export const ACCESS_COOKIE_MAX_AGE_SECONDS = 60 * 15;
 const COOKIE_VALUE_PATTERN = /^[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]+$/u;
 

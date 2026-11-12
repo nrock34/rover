@@ -13,7 +13,7 @@
 
 /**
  * @typedef {{
- *   id: number;
+ *   id: string;
  *   name: string;
  *   avatar: string | null;
  *   associatedUser: number | null;
@@ -22,7 +22,8 @@
 
 /**
  * @typedef {{
- *   id: number;
+ *   id: string;
+ *   restId: number | null;
  *   title: string;
  *   content: string;
  *   image: string | null;
@@ -50,7 +51,8 @@
 
 /**
  * @typedef {{
- *   id: number;
+ *   id: string;
+ *   restId: number | null;
  *   author: CommunityAuthor;
  *   content: string;
  *   createdAt: string;
@@ -61,7 +63,7 @@
 
 /**
  * @typedef {{
- *   id: number;
+ *   id: string;
  *   title: string;
  *   category: string;
  *   categoryLabel: string;
@@ -88,7 +90,7 @@
 
 /**
  * @typedef {{
- *   id: number;
+ *   id: string;
  *   title: string;
  *   provider: string;
  *   location: string;
@@ -108,7 +110,7 @@
 
 /**
  * @typedef {{
- *   id: number;
+ *   id: string;
  *   title: string;
  *   provider: string;
  *   amount: string;

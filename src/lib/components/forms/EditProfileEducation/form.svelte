@@ -1,5 +1,6 @@
 <script>
 
+    import { untrack } from 'svelte';
     import * as Form from '$lib/components/ui/form';
     import { superForm } from 'sveltekit-superforms';
     import { yupClient } from 'sveltekit-superforms/adapters';
@@ -23,12 +24,20 @@
     //form supervalidated
     let { data, actionName } = $props();
     
-    const form = superForm( data.editProfileEducationForm, {
+    // Superforms owns subsequent updates; initialize once from the loaded form.
+    const form = superForm(untrack(() => data.editProfileEducationForm), {
         dataType: 'json',
         validators: yupClient(profileEducationSchema),
+        multipleSubmits: 'prevent',
+        onError: ({ message }) => {
+            message.set({ error: 'save_failed', msg: 'Could not save your education information. Please try again.' });
+        },
+        onUpdated: ({ form }) => {
+            if (form.valid && form.message && !form.message.error) updated = false;
+        },
     })
 
-    const { form: formData, enhance, errors, valid } = form;
+    const { form: formData, enhance, errors, message, submitting } = form;
 
     let currentYear = today(getLocalTimeZone()).year
     let yearOptions = range(currentYear-20, currentYear+8)
@@ -41,7 +50,7 @@
 </script>
 
 <div>
-    <form method="POST" action={actionName} use:enhance>
+    <form method="POST" action={actionName} use:enhance aria-busy={$submitting}>
 
         <div class="grid gap-4">
 
@@ -56,6 +65,7 @@
                             fieldProps={props}/>
                     {/snippet}
                 </Form.Control>
+                <Form.FieldErrors />
                 <!-- <span>{$formData.university}</span> -->
             </Form.Field>
 
@@ -73,13 +83,14 @@
                             />
                         {/snippet}
                     </Form.Control>
+                <Form.FieldErrors />
                 </Form.Field>
 
                 <Form.Field {form} name="grad_year">
                     <Form.Control>
                         {#snippet children({ props })}
                             <Form.Label>Graduation Year</Form.Label>
-                            <Select.Root type='single' bind:value={$formData.grad_year}>
+                            <Select.Root type='single' bind:value={$formData.grad_year} onValueChange={() => {updated = true}}>
                                 <Select.Trigger class="min-h-10 w-full text-xs sm:text-sm" {...props}>
                                     {$formData.grad_year}
                                 </Select.Trigger>
@@ -94,13 +105,17 @@
                             </Select.Root>
                         {/snippet}
                     </Form.Control>
+                <Form.FieldErrors />
                 </Form.Field>
             </div>
             
 
+            {#if $message?.msg}
+                <p class="col-span-2 text-sm" class:text-destructive={$message.error} role={$message.error ? 'alert' : 'status'}>{$message.msg}</p>
+            {/if}
             <div class="flex w-full col-span-2 flex-col items-end mt-6">
-                <Form.Button disabled={!updated}>
-                    Save Changes
+                <Form.Button disabled={!updated || $submitting}>
+                    {$submitting ? "Saving…" : "Save Changes"}
                 </Form.Button>
             </div>
         </div>

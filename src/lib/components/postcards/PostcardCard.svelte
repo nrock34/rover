@@ -1,5 +1,6 @@
 <script>
 	import { CalendarDays, Eye, Heart, MapPin } from "lucide-svelte";
+	import Stamp from "$lib/assets/stamp.svelte";
 	import ResilientImage from "$lib/components/shared/ResilientImage.svelte";
 
 	const FALLBACK_IMAGE = "https://images.pexels.com/photos/1010657/pexels-photo-1010657.jpeg";
@@ -16,70 +17,102 @@
 	}
 
 	function initials(name) {
-		return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+		return name
+			.split(/\s+/)
+			.filter(Boolean)
+			.slice(0, 2)
+			.map((part) => part[0])
+			.join("")
+			.toUpperCase();
 	}
 
-	let location = $derived([postcard.location.city, postcard.location.country].filter(Boolean).join(", "));
+	let city = $derived(postcard.location?.city?.trim() ?? "");
+	let country = $derived(postcard.location?.country?.trim() ?? "");
+	let location = $derived([city, country].filter(Boolean).join(", "));
 </script>
 
-<article class="group flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-	<a href={postcard.href} class="relative block aspect-[4/3] overflow-hidden bg-muted" aria-label={`Read ${postcard.title}`}>
-		<ResilientImage
-			src={postcard.image ?? FALLBACK_IMAGE}
-			fallbackSrc={FALLBACK_IMAGE}
-			alt={postcard.title}
-			class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.025]"
-			loading="lazy"
-		/>
-		<div class="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/55 to-transparent"></div>
-		{#if postcard.featured}
-			<span class="absolute left-3 top-3 rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground">Featured</span>
-		{/if}
-		{#if postcard.region}
-			<span class="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full bg-background/85 px-2.5 py-1 text-xs font-medium text-foreground backdrop-blur">
-				<MapPin class="size-3.5" aria-hidden="true" />
-				{postcard.region}
-			</span>
-		{/if}
-	</a>
+<article class="h-[25rem] w-full max-w-[24rem] border border-border/80 bg-card p-2 shadow-sm">
+	<div class="flex h-full flex-col overflow-hidden border border-foreground/15 bg-background">
+		<a href={postcard.href} class="relative block h-[60%] shrink-0 overflow-hidden bg-muted" aria-label={`Read ${postcard.title}`}>
+			<ResilientImage
+				src={postcard.image ?? FALLBACK_IMAGE}
+				fallbackSrc={FALLBACK_IMAGE}
+				alt=""
+				class="size-full object-cover object-center"
+				loading="lazy"
+			/>
 
-	<div class="flex flex-1 flex-col p-5">
-		<div class="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-			{#if postcard.category}
-				<a class="rounded-full bg-secondary px-2 py-0.5 text-secondary-foreground hover:underline" href={`/postcards?category=${encodeURIComponent(postcard.category.name)}`}>
-					{postcard.category.name}
-				</a>
-			{/if}
-			{#if location}
-				<span>{location}</span>
-			{/if}
-		</div>
-
-		<h2 class="line-clamp-2 text-lg font-semibold leading-tight">
-			<a href={postcard.href} class="outline-none hover:text-primary focus-visible:underline">{postcard.title}</a>
-		</h2>
-		<p class="mt-2 line-clamp-3 flex-1 text-sm leading-relaxed text-muted-foreground">{postcard.description}</p>
-
-		<div class="mt-5 flex items-center justify-between gap-3 border-t border-border pt-4">
-			<div class="flex min-w-0 items-center gap-2">
-				{#if postcard.author.avatar}
-					<ResilientImage src={postcard.author.avatar} fallbackSrc={null} hideOnError={true} alt="" class="size-8 rounded-full object-cover" loading="lazy" />
+			<div class="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3">
+				{#if postcard.region}
+					<span class="inline-flex items-center gap-1 border border-white/35 bg-background/90 px-2 py-1 text-xs font-semibold text-foreground shadow-sm">
+						<MapPin class="size-3.5 fill-primary text-primary" aria-hidden="true" />
+						{postcard.region}
+					</span>
 				{:else}
-					<span class="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold" aria-hidden="true">{initials(postcard.author.name)}</span>
+					<span></span>
 				{/if}
-				<div class="min-w-0">
-					<p class="truncate text-xs font-medium">{postcard.author.name}</p>
-					<p class="flex items-center gap-1 text-xs text-muted-foreground">
+				<Stamp class="size-10 shrink-0 fill-primary drop-shadow-sm" aria-hidden="true" />
+			</div>
+		</a>
+
+		<div class="grid h-[40%] min-h-0 shrink-0 grid-cols-[minmax(0,1.7fr)_minmax(6.5rem,0.9fr)] border-t border-foreground/15 bg-background">
+			<div class="flex min-w-0 flex-col gap-1 px-3 py-2 sm:px-4">
+				{#if postcard.featured || postcard.category}
+					<div class="flex flex-wrap items-baseline gap-x-1 text-xs font-semibold">
+						{#if postcard.featured}<span class="text-primary">Featured</span>{/if}
+						{#if postcard.category}
+							<a href={`/postcards?category=${encodeURIComponent(postcard.category.name)}`} class="text-muted-foreground hover:text-primary focus-visible:underline">
+								{postcard.category.name}
+							</a>
+						{/if}
+					</div>
+				{/if}
+
+				<h2 class="line-clamp-2 text-balance text-sm font-semibold leading-tight sm:text-base">
+					<a href={postcard.href} class="outline-none hover:text-primary focus-visible:underline">{postcard.title}</a>
+				</h2>
+
+				<p class="line-clamp-2 text-pretty text-xs leading-snug text-muted-foreground">{postcard.description}</p>
+
+				<div class="flex flex-wrap items-center gap-x-2 gap-y-1 pt-0.5 text-[0.7rem] leading-tight text-muted-foreground">
+					<span class="inline-flex min-w-0 items-center gap-1.5 text-foreground">
+						{#if postcard.author.avatar}
+							<ResilientImage src={postcard.author.avatar} fallbackSrc={null} hideOnError={true} alt="" class="size-6 shrink-0 rounded-full object-cover" loading="lazy" />
+						{:else}
+							<span class="grid size-6 shrink-0 place-items-center rounded-full bg-muted text-[0.6rem] font-semibold" aria-hidden="true">{initials(postcard.author.name)}</span>
+						{/if}
+						<span class="max-w-28 truncate font-medium">{postcard.author.name}</span>
+					</span>
+					<span class="inline-flex items-center gap-1">
 						<CalendarDays class="size-3" aria-hidden="true" />
 						<time datetime={postcard.datePublished ?? undefined}>{formatDate(postcard.datePublished)}</time>
-					</p>
+					</span>
+					<span class="inline-flex items-center gap-1 tabular-nums" title={`${postcard.likes} likes`}>
+						<Heart class="size-3" aria-hidden="true" />
+						{postcard.likes}
+					</span>
+					{#if postcard.views > 0}
+						<span class="inline-flex items-center gap-1 tabular-nums" title={`${postcard.views} views`}>
+							<Eye class="size-3" aria-hidden="true" />
+							{postcard.views}
+						</span>
+					{/if}
 				</div>
 			</div>
-			<div class="flex shrink-0 items-center gap-2 text-xs text-muted-foreground" aria-label="Postcard engagement">
-				<span class="inline-flex items-center gap-1" title={`${postcard.likes} likes`}><Heart class="size-3.5" aria-hidden="true" />{postcard.likes}</span>
-				{#if postcard.views > 0}
-					<span class="inline-flex items-center gap-1" title={`${postcard.views} views`}><Eye class="size-3.5" aria-hidden="true" />{postcard.views}</span>
-				{/if}
+
+			<div class="flex min-w-0 flex-col gap-2 border-l border-foreground/15 px-3 py-2 sm:px-4">
+				<div class="flex items-center gap-1.5 text-primary" aria-hidden="true">
+					<span class="h-px flex-1 bg-primary"></span>
+					<span class="size-2 rounded-full border border-primary bg-background"></span>
+					<span class="h-px flex-1 bg-primary"></span>
+				</div>
+
+				<div class="flex flex-col gap-1 font-script text-xl leading-none text-foreground" aria-label={location ? `Postcard sent from ${location}` : "Postcard location"}>
+					<p class="truncate border-b border-foreground/45 pb-1 text-center font-semibold">{city || postcard.region || "From abroad"}</p>
+					<p class="truncate border-b border-foreground/45 pb-1 text-center font-semibold">{country || "RomeWithMe"}</p>
+				</div>
+
+				<a href={postcard.href} class="mt-auto text-xs font-semibold text-primary underline-offset-2 hover:underline focus-visible:underline">Read more</a>
 			</div>
 		</div>
 	</div>

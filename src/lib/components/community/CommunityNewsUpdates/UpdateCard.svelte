@@ -31,7 +31,7 @@
 </script>
 
 {#if isCompact}
-	<Card.Root class="gap-2 p-3 hover:shadow-md transition-shadow">
+	<Card.Root class="community-news-card gap-2 p-3">
 		<div class="mb-1 flex items-start justify-between gap-2">
 			<div class="flex flex-col-reverse items-start gap-1 lg:flex-row lg:items-center">
 				<div class="flex items-center gap-1">

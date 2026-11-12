@@ -37,6 +37,14 @@ export function getApiUrl() {
 }
 
 /**
+ * @returns {string}
+ * @throws {MissingEnvError}
+ */
+export function getStrapiGraphqlUrl() {
+	return requireEnv("STRAPI_GRAPHQL_URL");
+}
+
+/**
  * @param {string} path
  * @param {string} [apiUrl]
  * @returns {string}

@@ -1,8 +1,11 @@
 import { sequence } from "@sveltejs/kit/hooks";
 import * as Sentry from "@sentry/sveltekit";
-import { redirect } from "@sveltejs/kit";
-import { buildLoginRedirectUrl } from "$lib/auth/redirect.js";
+import { json, redirect } from "@sveltejs/kit";
+import { buildLoginRedirectUrl, buildOnboardingRedirectUrl } from "$lib/auth/redirect.js";
 import { reconcileRequestSession } from "$lib/auth/server.js";
+import { ONBOARDED_ROLE } from "$lib/auth/rbac.js";
+import { isOnboardedOnlyPath } from "$lib/auth/protected-routes.js";
+import { resolveSessionRoles } from "$lib/auth/session-roles.js";
 
 
 const authRoutes = [
@@ -33,10 +36,36 @@ export const handle = sequence(async ({ event, resolve }) => {
 		accessToken = await reconcileRequestSession(event);
 	}
 
-	if (isAuthRoute(event.url.pathname, authRoutes)) {
+	const requiresOnboarded = isOnboardedOnlyPath(event.url.pathname);
+	const isJsonCommunityInteraction = requiresOnboarded &&
+		(event.url.pathname.endsWith("/comments") || event.url.pathname.endsWith("/like")) &&
+		event.request.headers.get("accept")?.includes("application/json");
+	if (isAuthRoute(event.url.pathname, authRoutes) || requiresOnboarded) {
 		if (!accessToken) {
-			throw redirect(303, buildLoginRedirectUrl(event.url));
+			const loginHref = buildLoginRedirectUrl(event.url);
+			if (isJsonCommunityInteraction) {
+				return json(
+					{ error: "Sign in to use community features.", loginHref },
+					{ status: 401, headers: { "Cache-Control": "private, no-store" } }
+				);
+			}
+			throw redirect(303, loginHref);
 		}
+	}
+
+	if (accessToken) {
+		event.locals.roles = await resolveSessionRoles({ accessToken, fetch: event.fetch });
+	}
+
+	if (requiresOnboarded && !event.locals.roles?.includes(ONBOARDED_ROLE)) {
+		const onboardingHref = buildOnboardingRedirectUrl(event.url);
+		if (isJsonCommunityInteraction) {
+			return json(
+				{ error: "Finish onboarding to use community features.", onboardingHref },
+				{ status: 403, headers: { "Cache-Control": "private, no-store" } }
+			);
+		}
+		throw redirect(303, onboardingHref);
 	}
 
 	if (
@@ -45,6 +74,15 @@ export const handle = sequence(async ({ event, resolve }) => {
 	) {
 		throw redirect(308, "/community/news-and-updates");
 	}
+
+	if (event.url.pathname === "/tos") {
+		throw redirect(308, "/terms-of-service");
+	}
+
+	if (event.url.pathname == "/pp") {
+		throw redirect(308, "/privacy-policy");
+	}
+
 	const response = await resolve(event);
 	response.headers.set("X-Content-Type-Options", "nosniff");
 	response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");

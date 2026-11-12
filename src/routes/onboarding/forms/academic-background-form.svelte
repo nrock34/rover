@@ -8,7 +8,7 @@
     import { academicBackgroundSchema } from "../schema";
     import * as Form from "$lib/components/ui/form";
     import { Button } from "$lib/components/ui/button";
-    import { ChevronRight } from "lucide-svelte";
+    import { ChevronRight, Check } from "lucide-svelte";
     import {
         CURRENT_GRADUATION_YEAR,
         MAX_GRADUATION_YEAR,
@@ -28,24 +28,29 @@
 
     const form = superForm(data.form, {
         dataType: "json",
+        invalidateAll: false,
+        multipleSubmits: "prevent",
+        onError: ({ message }) => message.set({ msg: "We couldn’t continue. Check your connection and try again." }),
         validators: yupClient(academicBackgroundSchema),
         onResult: ({ result }) => {
             if (result.data?.nextForm && result.data?.success) {
                 prevFormId = ONBOARDING_STEP_IDS.academic;
                 currentFormId = ONBOARDING_STEP_IDS.global;
 
-                data.prevForm = data.form;
+                data.prevForm = result.data.form;
                 data.form = data.GlobalBackgroundForm;
                 data.academicPayload = result.data.onboardingDraft?.academic_background ?? null;
 
-                writeStoredJson(
-                    ONBOARDING_STORAGE_KEYS.academicFields,
-                    result.data.form.data
-                );
-                writeStoredJson(
-                    ONBOARDING_STORAGE_KEYS.academicStep,
-                    result.data.onboardingDraft?.academic_background ?? null
-                );
+                if (!data.preview) {
+                    writeStoredJson(
+                        ONBOARDING_STORAGE_KEYS.academicFields,
+                        result.data.form.data
+                    );
+                    writeStoredJson(
+                        ONBOARDING_STORAGE_KEYS.academicStep,
+                        result.data.onboardingDraft?.academic_background ?? null
+                    );
+                }
             }
         }
     });
@@ -63,7 +68,7 @@
         }
     };
 
-    const { form: formData, enhance } = form;
+    const { form: formData, enhance, errors, message, submitting } = form;
 
     let isFormValid = $derived.by(() => {
         const university = typeof $formData.university === "string" ? $formData.university.trim() : "";
@@ -81,93 +86,59 @@
     });
 </script>
 
-<Card.Root class="mx-auto w-full max-w-3xl p-8 sm:p-10 sm:text-right">
-    <h1 class="text-2xl font-serif text-center mb-4">Your Academic Background</h1>
-    <form method="POST" action={"?/academicBackground"} use:enhance>
-        <div class="flex flex-col gap-4">
+<Card.Root class="onboarding-card">
+    <Card.Header class="onboarding-card-heading">
+        <Card.Title><h1>Your Academic Background</h1></Card.Title>
+        <Card.Description>Tell us a little about your studies.</Card.Description>
+    </Card.Header>
+    <Card.Content class="onboarding-card-content">
+        <form method="POST" action="?/academicBackground" use:enhance aria-busy={$submitting}>
             <Form.Field {form} name="studentLevel">
                 <Form.Control>
                     {#snippet children({ props })}
-                        <Form.Label class="font-medium text-md sm:text-lg">What status best represents you?</Form.Label>
-                        <ToggleGroup.Root
-                            {...props}
-                            onValueChange={() => {
-                                form.validate("studentLevel");
-                            }}
-                            bind:value={$formData.studentLevel}
-                            type="single"
-                            class="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3 justify-center items-center w-full"
-                        >
+                        <Form.Label class="onboarding-question">What status best represents you?</Form.Label>
+                        <ToggleGroup.Root {...props} onValueChange={() => form.validate("studentLevel")} bind:value={$formData.studentLevel} type="single" class="grid grid-cols-2 gap-3 sm:grid-cols-3">
                             {#each studentOptions as option, idx}
-                                {@const idxOddAndEnd = (studentOptions.length - 1 === idx) && (studentOptions.length % 2 !== 0)}
-                                <div class={`rounded-(--radius) w-full ${idxOddAndEnd ? "col-span-2" : ""} sm:col-span-1`}>
-                                    <ToggleGroup.Item class="text-xs sm:text-sm py-10 border-2 w-full border-muted " value={option.id}>
-                                        {option.label}
-                                    </ToggleGroup.Item>
-                                </div>
+                                <ToggleGroup.Item class={`onboarding-choice onboarding-student ${idx === studentOptions.length - 1 ? "col-span-2 sm:col-span-1" : ""}`} value={option.id}>
+                                    <option.icon class="size-5" aria-hidden="true" />
+                                    <span>{option.label}</span><Check class="choice-check size-4" aria-hidden="true" />
+                                </ToggleGroup.Item>
                             {/each}
                         </ToggleGroup.Root>
                     {/snippet}
                 </Form.Control>
+                <Form.FieldErrors />
             </Form.Field>
-
-        </div>
-        <div hidden={!$formData.studentLevel} class="flex flex-col gap-6 mt-8">
-            <div class="flex flex-col gap-2">
-                <label for="university" class="font-medium text-md sm:text-lg">
-                    {$formData.studentLevel === "almn" ? studentLang.alumni.school : studentLang.current.school}
-                </label>
-                <div>
-                    {#if data.universityList?.length}
-                        <UniversitySelect
-                            name="university"
-                            onchange={() => form.validate("university")}
-                            bind:value={$formData.university}
-                            className="h-10"
-                            {data}
-                        />
-                    {:else}
-                        <Input
-                            bind:value={$formData.university}
-                            name="university"
-                            class="h-10 text-right"
-                            placeholder="Enter your university"
-                        />
-                    {/if}
+            {#if $formData.studentLevel}
+                <div class="onboarding-fields onboarding-reveal">
+                    <div class="onboarding-field">
+                        <label for="university">{$formData.studentLevel === "almn" ? studentLang.alumni.school : studentLang.current.school}</label>
+                        {#if data.universityList?.length}
+                            <UniversitySelect name="university" onchange={() => form.validate("university")} bind:value={$formData.university} className="h-11" closeOnSelect={true} formProps={{ id: "university", "aria-invalid": Boolean($errors.university?.length), "aria-describedby": "university-error" }} {data} />
+                        {:else}
+                            <Input id="university" bind:value={$formData.university} name="university" class="h-11" placeholder="Enter your university" aria-invalid={Boolean($errors.university?.length)} aria-describedby="university-error" />
+                        {/if}
+                        <p id="university-error" class="onboarding-error">{($errors.university ?? []).join(' ')}</p>
+                    </div>
+                    <div class="grid gap-5 sm:grid-cols-2">
+                        <div class="onboarding-field">
+                            <label for="major">{$formData.studentLevel === "almn" ? studentLang.alumni.major : studentLang.current.major}</label>
+                            <Input id="major" bind:value={$formData.major} name="major" class="h-11" placeholder="e.g. History" aria-invalid={Boolean($errors.major?.length)} aria-describedby="major-error" />
+                            <p id="major-error" class="onboarding-error">{($errors.major ?? []).join(' ')}</p>
+                        </div>
+                        <div class="onboarding-field">
+                            <label for="year">{$formData.studentLevel === "almn" ? studentLang.alumni.yr : studentLang.current.yr}</label>
+                            <Input id="year" bind:value={$formData.year} name="year" type="number" class="h-11" min={String(MIN_GRADUATION_YEAR)} max={String(MAX_GRADUATION_YEAR)} placeholder={String(CURRENT_GRADUATION_YEAR)} aria-invalid={Boolean($errors.year?.length)} aria-describedby="year-error" />
+                            <p id="year-error" class="onboarding-error">{($errors.year ?? []).join(' ')}</p>
+                        </div>
+                    </div>
+                    {#if $message?.msg}<p role="alert" class="onboarding-error">{$message.msg}</p>{/if}
+                    <div class="onboarding-actions">
+                        <p class="onboarding-help">{isFormValid ? "Next: travel experience & interests" : "Complete the fields above to continue."}</p>
+                        <Button disabled={!isFormValid || $submitting} type="submit" class="h-11">{$submitting ? "Continuing…" : "Next"}<ChevronRight aria-hidden="true" /></Button>
+                    </div>
                 </div>
-            </div>
-            <div class="grid-cols-2 grid gap-4">
-                <div class="flex flex-col gap-2">
-                    <label for="major" class="font-medium text-sm md:text-lg sm:text-md">
-                        {$formData.studentLevel === "almn" ? studentLang.alumni.major : studentLang.current.major}
-                    </label>
-                    <Input
-                        bind:value={$formData.major}
-                        name="major"
-                        class="h-10 text-right"
-                        placeholder={"e.g. History"}
-                    />
-                </div>
-                <div class="flex flex-col gap-2">
-                    <label for="year" class="font-medium text-nowrap text-sm sm:text-md md:text-lg">
-                        {$formData.studentLevel === "almn" ? studentLang.alumni.yr : studentLang.current.yr}
-                    </label>
-                    <Input
-                        bind:value={$formData.year}
-                        name="year"
-                        type="number"
-                        class="h-10 text-right"
-                        min={String(MIN_GRADUATION_YEAR)}
-                        max={String(MAX_GRADUATION_YEAR)}
-                        placeholder={String(CURRENT_GRADUATION_YEAR)}
-                    />
-                </div>
-            </div>
-            <Button disabled={!isFormValid} type="submit">
-                <span>Next</span>
-                <ChevronRight />
-            </Button>
-        </div>
-
-    </form>
+            {/if}
+        </form>
+    </Card.Content>
 </Card.Root>

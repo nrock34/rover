@@ -284,7 +284,7 @@ export async function loadProfileSummary({ fetch, accessToken }) {
 	return loadAuthorizedData({
 		fetch,
 		accessToken,
-		path: "users/me/profile",
+		path: "users/me",
 		fallbackMessage: "Failed to load profile summary.",
 		mapData: mapProfileSummary
 	});

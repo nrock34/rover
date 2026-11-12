@@ -120,7 +120,7 @@ export function mapProfileSummary(value) {
 
 	const profile = isObject(value.profile) ? value.profile : {};
 	const username = textOrEmpty(value.username);
-	const rawName = textOrEmpty(value.name);
+	const rawName = textOrEmpty(value.name) || [textOrEmpty(value.first_name), textOrEmpty(value.last_name)].filter(Boolean).join(" ");
 	const name = rawName || username || "Your Profile";
 	const email = textOrEmpty(value.email);
 	const phone = textOrEmpty(value.phone_num);

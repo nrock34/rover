@@ -4,8 +4,8 @@ import { newsletterSignup } from "$lib/server/shared-actions/newsletter-signup.j
 
 /** @type {import("./$types").PageServerLoad} */
 export const load = async ({ params, fetch, url }) => {
-	const postcardId = Number(params.id);
-	if (!Number.isSafeInteger(postcardId) || postcardId <= 0) {
+	const postcardId = params.id.trim();
+	if (!postcardId) {
 		throw error(404, "Postcard not found.");
 	}
 

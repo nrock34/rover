@@ -38,8 +38,8 @@
 /**
  * @typedef {{
  *   acs_tkn: string;
- *   rfh_tkn?: string;
- *   rfh_age?: number;
+ *   refreshToken?: string;
+ *   user?: Record<string, unknown>;
  * }} AuthLoginResponse
  */
 
@@ -59,7 +59,7 @@
 
 /**
  * @typedef {{
- *   key: "rfh_tkn";
+ *   key: "rwm_refresh";
  *   value: string;
  *   options: import("cookie").CookieSerializeOptions;
  * }} RefreshCookie

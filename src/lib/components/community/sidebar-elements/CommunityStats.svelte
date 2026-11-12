@@ -5,10 +5,10 @@
 	let { stats = [] } = $props();
 </script>
 
-<Card.Root>
-	<Card.Header class="flex items-center space-x-2">
+<Card.Root class="community-module community-stats">
+	<Card.Header class="community-module-heading">
 		<Users class="h-8 w-8 text-primary" />
-		<h3 class="text-lg font-semibold">Community Stats</h3>
+		<h2>Community Stats</h2>
 	</Card.Header>
 
 	<Card.Content>

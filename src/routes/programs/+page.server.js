@@ -1,27 +1,39 @@
 import { error } from "@sveltejs/kit";
-import { loadProgramCountries, loadProgramDirectoryPage } from "$domains/programs";
+import { loadProgramFilterOptions, loadProgramDirectoryPage } from "$domains/programs";
+import { contentServiceUnavailableStatus, isContentServiceUnavailable } from "$lib/server/content-service-status.js";
 
 export const load = async ({ url, data, fetch }) => {
-    const search = url.searchParams.get("q") ?? "";
-    const sort = url.searchParams.get("sort_by") ?? "";
+    const filters = Object.fromEntries(url.searchParams);
 
-    const [programsResult, countriesResult] = await Promise.all([
+    const [programsResult, optionsResult] = await Promise.all([
         loadProgramDirectoryPage(
             { fetch },
-            { ...Object.fromEntries(url.searchParams) }
+            filters
         ),
-        loadProgramCountries({ fetch })
+        loadProgramFilterOptions({ fetch })
     ]);
 
     if (!programsResult.ok) {
+        if (isContentServiceUnavailable(programsResult.error)) {
+            return {
+                ...data,
+                next: null,
+                prev: null,
+                results: [],
+                pageInfo: { total: 0, page: 1, pageSize: 12, pageCount: 0 },
+                filterOptions: optionsResult.ok ? optionsResult.data : { countries: [], providers: [], subjects: [], languages: [] },
+                filters,
+                contentService: contentServiceUnavailableStatus()
+            };
+        }
+
         throw error(programsResult.error.status || 500, programsResult.error.message);
     }
 
     return {
         ...data,
         ...programsResult.data,
-        programCountries: countriesResult.ok ? countriesResult.data : [],
-        search,
-        sort
+        filterOptions: optionsResult.ok ? optionsResult.data : { countries: [], providers: [], subjects: [], languages: [] },
+        filters
     };
 };

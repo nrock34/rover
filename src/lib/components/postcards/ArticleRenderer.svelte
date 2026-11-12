@@ -1,8 +1,10 @@
 <script>
+	import { getBlockMarginBottom } from "./margin.js";
 	import { ExternalLink, Info, Lightbulb, TriangleAlert } from "lucide-svelte";
 	import ResilientImage from "$lib/components/shared/ResilientImage.svelte";
+	import PostcardContentBlock from "./PostcardContentBlock.svelte";
 
-	let { blocks = [] } = $props();
+	let { blocks = [], document = null } = $props();
 
 	function calloutClasses(tone) {
 		if (tone === "warning") return "border-amber-400/70 bg-amber-50 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100";
@@ -11,9 +13,12 @@
 		return "border-blue-500/60 bg-blue-50 text-blue-950 dark:bg-blue-950/30 dark:text-blue-100";
 	}
 </script>
-
 <article class="prose prose-neutral max-w-none dark:prose-invert prose-a:text-primary prose-img:rounded-xl prose-headings:scroll-mt-24">
-	{#if blocks.length === 0}
+	{#if document}
+		{#each document.blocks as block}
+			<div class="not-prose mb-5 last:mb-0" style:margin-bottom={getBlockMarginBottom(block.mb)}><PostcardContentBlock {block} /></div>
+		{/each}
+	{:else if blocks.length === 0}
 		<div class="not-prose rounded-lg border border-dashed border-border bg-muted/40 p-6 text-sm text-muted-foreground">
 			This postcard’s story is still being prepared. Please check back soon.
 		</div>

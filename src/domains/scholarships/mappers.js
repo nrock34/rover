@@ -1,10 +1,12 @@
 import {
 	objectArray,
+	objectOrNull,
 	stringArray,
 	textOrEmpty,
 	toFiniteNumber,
 	toTitleCase
 } from "../../core/domain/coerce.js";
+import { adaptGraphqlConnection } from "../../core/graphql/connection.js";
 
 /**
  * @param {string} value
@@ -130,7 +132,7 @@ export function mapScholarshipCard(scholarship) {
 	const meta = mapRequirementMeta(requirements);
 	const lowerBound = toFiniteNumber(scholarship.lower_bound);
 	const upperBound = toFiniteNumber(scholarship.upper_bound);
-	const id = toFiniteNumber(scholarship.id);
+	const id = textOrEmpty(scholarship.id);
 
 	return {
 		id,
@@ -153,7 +155,7 @@ export function mapScholarshipCard(scholarship) {
 		rating: toFiniteNumber(scholarship.rating),
 		applicants: null,
 		awarded: null,
-		href: `/scholarships/${id}`
+		href: `/scholarships/${encodeURIComponent(id)}`
 	};
 }
 
@@ -250,4 +252,40 @@ export function mapScholarshipDetail(scholarship) {
 		successRate: "Not provided",
 		updatedAt: textOrEmpty(scholarship.updated_at) || null
 	};
+}
+
+/** @param {unknown} asset @returns {string} */
+function assetUrl(asset) {
+	const item = objectOrNull(asset);
+	const file = objectOrNull(item?.file);
+	return typeof file?.url === "string" ? file.url : typeof item?.source_url === "string" ? item.source_url : "";
+}
+
+/** @param {unknown} value @returns {string[]} */
+function stringList(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+
+/** @param {unknown} value @returns {Record<string, unknown>} */
+export function adaptGraphqlScholarship(value) {
+	const scholarship = objectOrNull(value) ?? {};
+	const provider = objectOrNull(scholarship.provider);
+	return {
+		...scholarship,
+		id: scholarship.documentId,
+		provider: provider ? { ...provider, id: provider.documentId } : null,
+		categories: stringList(scholarship.categories),
+		benefits: stringList(scholarship.benefits),
+		image: assetUrl(scholarship.image),
+		gallery: objectArray(scholarship.gallery).map(assetUrl).filter(Boolean),
+		events: objectArray(scholarship.events),
+		application_steps: objectArray(scholarship.application_steps),
+		application_link: scholarship.link,
+		updated_at: scholarship.updatedAt
+	};
+}
+
+/** @param {unknown} value */
+export function adaptScholarshipsConnection(value) {
+	return adaptGraphqlConnection(value, "scholarships", adaptGraphqlScholarship);
 }

@@ -1,61 +1,59 @@
 <script>
 	import * as Card from "$lib/components/ui/card";
 	import { Button } from "$lib/components/ui/button";
-	import { Filter, Plus, Search } from "lucide-svelte";
+	import { Plus, Search, X } from "lucide-svelte";
 	import { Input } from "$lib/components/ui/input";
 
 	let {
 		searchQuery = $bindable(),
 		activeFilter = $bindable("all"),
 		activeContentType = $bindable("all"),
-		filters = [],
-		contentTypes = [],
-		createPostHref = "/community/posts/new"
+		filters = /** @type {ReadonlyArray<{id: string, label: string}>} */ ([]),
+		contentTypes = /** @type {ReadonlyArray<{id: string, label: string}>} */ ([]),
+		createPostHref = "/community/posts/new",
+		hasFilters = false, clearFilters = () => {}
 	} = $props();
 </script>
 
-<div class="space-y-6">
-	<Card.Root>
+<div>
+	<Card.Root class="community-feed-header">
 		<Card.Header>
-			<div class="flex items-center justify-between gap-6">
+			<div class="community-feed-heading">
 				<div>
-					<h1 class="font-bold text-primary md:text-xl lg:text-2xl">Social Feed</h1>
-						<p class="text-muted-foreground md:text-sm lg:text-body-sm">Connect, share, and discover with fellow students and alumni.</p>
+					<h1 class="community-feed-title">Social Feed</h1>
+						<p class="community-feed-description">Connect, share, and discover with fellow students and alumni.</p>
 				</div>
-				<Button href={createPostHref} class="h-fit text-xs has-[>svg]:px-6 lg:text-sm">
+				<Button href={createPostHref} class="community-create-post">
 					<Plus class="h-4 w-4" />
 					<span>Create Post</span>
 				</Button>
 			</div>
 		</Card.Header>
 		<Card.Content>
-			<div class="relative mb-6">
-				<div class="absolute inset-y-0 left-0 flex items-center pl-3 pb-[2px]">
-					<Search class="h-5 w-5 text-muted-foreground" />
+			<div class="relative community-feed-search">
+				<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 pb-[2px]">
+					<Search class="size-4 text-muted-foreground" />
 				</div>
-				<Input bind:value={searchQuery} type="text" placeholder="Search posts, topics, or tags..." class="block w-full pl-10 pr-3" />
+				<Input aria-label="Search recent posts" bind:value={searchQuery} type="text" placeholder="Search recent posts, topics, or tags…" class="block w-full pl-9 pr-3" />
 			</div>
 
-			<div class="mb-4 flex flex-wrap gap-2">
-				<div class="flex items-center gap-2">
-					<Filter class="h-4 w-4 text-secondary-foreground" />
-					<span class="text-xs font-medium text-secondary-foreground lg:text-sm">Topic:</span>
-				</div>
-				{#each filters as filter}
-					<Button onclick={() => (activeFilter = filter.id)} variant={activeFilter === filter.id ? "secondary" : "outline"} class="h-fit text-xs lg:text-sm">
-						<span>{filter.name}</span>
-					</Button>
-				{/each}
-			</div>
-
-			<div class="flex flex-wrap items-center gap-2">
-				<span class="text-xs font-medium text-secondary-foreground lg:text-sm">Type:</span>
-				{#each contentTypes as contentType}
-					<Button onclick={() => (activeContentType = contentType.id)} variant={activeContentType === contentType.id ? "secondary" : "outline"} class="h-fit text-xs lg:text-sm">
-						{contentType.name}
-					</Button>
-				{/each}
-			</div>
+			<div class="community-filter-row" role="group" aria-label="Filter by topic">
+                <span class="community-filter-label">Topic</span>
+                <div class="community-filter-options">
+                {#each filters as filter}
+                    <Button aria-pressed={activeFilter === filter.id} onclick={() => (activeFilter = filter.id)} variant="ghost" class="community-filter-option">{filter.label}</Button>
+                {/each}
+                </div>
+            </div>
+            <div class="community-filter-row" role="group" aria-label="Filter by post type">
+                <span class="community-filter-label">Type</span>
+                <div class="community-filter-options">
+                {#each contentTypes as contentType}
+                    <Button aria-pressed={activeContentType === contentType.id} onclick={() => (activeContentType = contentType.id)} variant="ghost" class="community-filter-option">{contentType.label}</Button>
+                {/each}
+                </div>
+            </div>
+			{#if hasFilters}<Button variant="ghost" onclick={clearFilters} class="community-filter-reset"><X aria-hidden="true" />Clear filters</Button>{/if}
 		</Card.Content>
 	</Card.Root>
 </div>

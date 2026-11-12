@@ -36,7 +36,7 @@ function assertTags(value) {
  */
 export function assertResourceSummary(value) {
 	const resource = assertObject(value, "resource");
-	assertNumber(resource.id, "resource.id");
+	assertString(resource.id, "resource.id");
 	assertString(resource.title, "resource.title");
 	assertString(resource.description, "resource.description");
 	assertString(resource.category, "resource.category");

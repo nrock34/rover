@@ -1,4 +1,4 @@
-export const ONBOARDED_ROLE = "onboarded";
+export const ONBOARDED_ROLE = "onboarded-member";
 
 /**
  * @typedef {"any" | "all"} RoleMatchMode

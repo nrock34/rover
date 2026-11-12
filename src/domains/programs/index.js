@@ -1,5 +1,6 @@
 export {
 	loadProgramCountries,
+	loadProgramFilterOptions,
 	loadProgramDirectoryPage,
 	loadProgramDetail,
 	loadProgramDetailPage

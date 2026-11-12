@@ -1,6 +1,7 @@
 import { getDaysUntil, getTimeAgo } from "../../lib/helper-funcs/funcs.js";
-import { toFiniteNumber, toTitleCase } from "../../core/domain/coerce.js";
+import { objectArray, objectOrNull, toFiniteNumber, toTitleCase } from "../../core/domain/coerce.js";
 import { sanitizeLegacyHtml } from "../../core/security/html.js";
+import { adaptGraphqlConnection } from "../../core/graphql/connection.js";
 
 /** @type {Readonly<Record<string, string>>} */
 const POST_CATEGORY_LABELS = Object.freeze({
@@ -66,7 +67,7 @@ export function mapCursorPage(page, mapItem) {
  */
 function mapAuthor(author) {
 	return {
-		id: typeof author.id === "number" ? author.id : 0,
+		id: typeof author.id === "string" ? author.id : "",
 		name: typeof author.name === "string" ? author.name : "Community Member",
 		avatar: typeof author.avatar === "string" && author.avatar.length > 0 ? author.avatar : null,
 		associatedUser: typeof author.associated_user === "number" ? author.associated_user : null
@@ -106,8 +107,10 @@ export function mapCommunityPost(post) {
 				.filter(Boolean)
 		: [];
 
+	const id = typeof post.id === "string" ? post.id : "";
 	return {
-		id: toFiniteNumber(post.id),
+		id,
+		restId: typeof post.rest_id === "number" ? post.rest_id : null,
 		title: typeof post.title === "string" ? post.title : "",
 		content: typeof post.content === "string" ? post.content : "",
 		image: typeof post.media === "string" && post.media.length > 0 ? post.media : null,
@@ -125,7 +128,7 @@ export function mapCommunityPost(post) {
 		comments: toFiniteNumber(post.comment_count),
 		tags,
 		viewerLiked: Boolean(post.liked_by_viewer),
-		href: `/community/posts/${toFiniteNumber(post.id)}`
+		href: `/community/posts/${encodeURIComponent(id)}`
 	};
 }
 
@@ -134,8 +137,12 @@ export function mapCommunityPost(post) {
  * @returns {import("./types.js").CommunityComment}
  */
 export function mapCommunityComment(comment) {
+	const originalId = comment.id;
 	return {
-		id: toFiniteNumber(comment.id),
+		id: typeof originalId === "string" ? originalId : String(originalId ?? ""),
+		restId: typeof comment.rest_id === "number"
+			? comment.rest_id
+			: typeof originalId === "number" ? originalId : null,
 		author: mapAuthor(/** @type {Record<string, unknown>} */ (comment.author)),
 		content: typeof comment.content === "string" ? comment.content : "",
 		createdAt: typeof comment.created_at === "string" ? comment.created_at : "",
@@ -153,8 +160,9 @@ export function mapCommunityUpdate(update) {
 		? /** @type {Record<string, unknown>} */ (update.category)
 		: null;
 	const categoryId = rawCategory && typeof rawCategory.name === "string" ? rawCategory.name : "update";
+	const id = typeof update.id === "string" ? update.id : "";
 	return {
-		id: toFiniteNumber(update.id),
+		id,
 		title: typeof update.title === "string" ? update.title : "",
 		category: categoryId,
 		categoryLabel: rawCategory && typeof rawCategory.name === "string" ? toTitleCase(rawCategory.name) : "Update",
@@ -169,7 +177,7 @@ export function mapCommunityUpdate(update) {
 		comments: toFiniteNumber(update.comment_count),
 		likes: toFiniteNumber(update.like_count),
 		timeAgo: typeof update.updated_at === "string" ? getTimeAgo(update.updated_at) : "",
-		href: `/community/news-and-updates/${toFiniteNumber(update.id)}`
+		href: `/community/news-and-updates/${encodeURIComponent(id)}`
 	};
 }
 
@@ -202,8 +210,9 @@ export function mapCommunityProgram(program) {
 	const country = location && typeof location.country === "string" ? location.country : "";
 	const duration = typeof program.duration === "string" ? program.duration : "";
 
+	const id = typeof program.id === "string" ? program.id : "";
 	return {
-		id: toFiniteNumber(program.id),
+		id,
 		title: typeof program.title === "string" ? program.title : "",
 		provider: provider && typeof provider.name === "string" ? provider.name : "Program Provider",
 		location: [city, country].filter(Boolean).join(", "),
@@ -221,7 +230,7 @@ export function mapCommunityProgram(program) {
 		deadline: typeof program.application_deadline === "string" && program.application_deadline.length > 0
 			? program.application_deadline
 			: null,
-		href: `/programs/${toFiniteNumber(program.id)}`
+		href: `/programs/${encodeURIComponent(id)}`
 	};
 }
 
@@ -243,8 +252,9 @@ export function mapCommunityScholarship(scholarship) {
 	const gradYear = requirements && typeof requirements.grad_year === "string" ? requirements.grad_year : "";
 	const country = requirements && typeof requirements.study_country === "string" ? requirements.study_country : "";
 
+	const id = typeof scholarship.id === "string" ? scholarship.id : "";
 	return {
-		id: toFiniteNumber(scholarship.id),
+		id,
 		title: typeof scholarship.name === "string" ? scholarship.name : "",
 		provider: provider && typeof provider.name === "string" ? provider.name : "Scholarship Provider",
 		amount: formatScholarshipAmount(scholarship.lower_bound, scholarship.upper_bound),
@@ -258,7 +268,7 @@ export function mapCommunityScholarship(scholarship) {
 		status: typeof scholarship.status === "string" ? scholarship.status : "upcoming",
 		featured: Boolean(scholarship.featured),
 		rating: toFiniteNumber(scholarship.rating),
-		href: "/scholarships"
+		href: `/scholarships/${encodeURIComponent(id)}`
 	};
 }
 
@@ -473,4 +483,88 @@ export function getDeadlineLabel(deadline) {
 	if (typeof daysUntil === "number" && daysUntil < 0) return "Deadline passed";
 	if (typeof daysUntil === "number") return `${daysUntil} days left`;
 	return String(daysUntil);
+}
+
+/** @param {unknown} value @returns {number | null} */
+function numericRestId(value) {
+	const id = Number(value);
+	return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+/** @param {unknown} value @returns {Record<string, unknown>} */
+export function adaptGraphqlPost(value) {
+	const post = objectOrNull(value) ?? {};
+	const author = objectOrNull(post.author);
+	const category = objectOrNull(post.category);
+	return {
+		...post,
+		id: post.documentId,
+		rest_id: numericRestId(post.restId),
+		author: author ? { ...author, id: author.documentId } : { id: "", name: "Community Member", avatar: null },
+		category: category ? { ...category, id: category.documentId } : null,
+		tags: objectArray(post.tags).map((tag) => ({ ...tag, id: tag.documentId })),
+		created_at: post.createdAt,
+		updated_at: post.updatedAt,
+		liked_by_viewer: false
+	};
+}
+
+/** @param {unknown} value @returns {Record<string, unknown>} */
+export function adaptGraphqlComment(value) {
+	const comment = objectOrNull(value) ?? {};
+	const author = objectOrNull(comment.author);
+	return {
+		...comment,
+		id: comment.documentId,
+		rest_id: numericRestId(comment.restId),
+		author: author ? { ...author, id: author.documentId } : { id: "", name: "Community Member", avatar: null },
+		created_at: comment.createdAt,
+		updated_at: comment.updatedAt
+	};
+}
+
+/** @param {unknown} value @returns {Record<string, unknown>} */
+export function adaptGraphqlUpdate(value) {
+	const update = objectOrNull(value) ?? {};
+	const category = objectOrNull(update.category);
+	const image = objectOrNull(update.image);
+	return {
+		...update,
+		id: update.documentId,
+		category: category ? { ...category, id: category.documentId } : null,
+		image: image?.public_url ?? null,
+		created_at: update.createdAt,
+		updated_at: update.updatedAt
+	};
+}
+
+/**
+ * @param {unknown} value
+ * @param {"posts" | "updates"} root
+ * @param {(value: unknown) => Record<string, unknown>} adapter
+ */
+export function adaptCommunityConnection(value, root, adapter) {
+	const data = objectOrNull(value) ?? {};
+	return {
+		...adaptGraphqlConnection(data, root, adapter),
+		matchingTagCount: Number(objectOrNull(objectOrNull(data.matchingTags)?.pageInfo)?.total) || 0
+	};
+}
+
+/** @param {unknown} value @returns {{ comments: Record<string, unknown>[]; total: number }} */
+export function adaptCommentsEnvelope(value) {
+	const data = objectOrNull(value) ?? {};
+	const posts = objectOrNull(data.posts) ?? {};
+	const post = objectArray(posts.nodes)[0];
+	return {
+		comments: objectArray(post?.commentsPage).map(adaptGraphqlComment),
+		total: Number(post?.comment_count) || 0
+	};
+}
+
+/** @param {unknown} value @returns {string | null} */
+export function adaptLegacyPostLookup(value) {
+	const data = objectOrNull(value);
+	const post = objectOrNull(data?.postByLegacyId);
+	return typeof post?.documentId === "string" && post.documentId ? post.documentId : null;
 }

@@ -54,11 +54,12 @@ export function assertSignupPayload(payload) {
  */
 export function assertLoginResponse(value) {
 	const payload = assertObject(value, "login response");
-	if (typeof payload.acs_tkn !== "string" || payload.acs_tkn.length === 0) {
+	const accessToken = typeof payload.acs_tkn === "string" ? payload.acs_tkn : payload.jwt;
+	if (typeof accessToken !== "string" || accessToken.length === 0) {
 		throw createDomainError("invalid_response", 502, "Login response is missing a valid access token.", value);
 	}
 
-	return /** @type {import("./types.js").AuthLoginResponse} */ (value);
+	return /** @type {import("./types.js").AuthLoginResponse} */ ({ ...payload, acs_tkn: accessToken });
 }
 
 /**
@@ -67,11 +68,12 @@ export function assertLoginResponse(value) {
  */
 export function assertRefreshResponse(value) {
 	const payload = assertObject(value, "refresh response");
-	if (typeof payload.acs_tkn !== "string" || payload.acs_tkn.length === 0) {
+	const accessToken = typeof payload.acs_tkn === "string" ? payload.acs_tkn : payload.jwt;
+	if (typeof accessToken !== "string" || accessToken.length === 0) {
 		throw createDomainError("invalid_response", 502, "Refresh response is missing a valid access token.", value);
 	}
 
-	return /** @type {import("./types.js").AuthRefreshResponse} */ (value);
+	return /** @type {import("./types.js").AuthRefreshResponse} */ ({ ...payload, acs_tkn: accessToken });
 }
 
 /**

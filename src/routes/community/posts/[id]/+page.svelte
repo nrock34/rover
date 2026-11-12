@@ -53,7 +53,7 @@
 					</div>
 					<div class="space-y-3">
 						{#each data.relatedPosts as relatedPost (relatedPost.id)}
-							<RelatedPostCard post={relatedPost} />
+							<RelatedPostCard post={relatedPost} currentPath={data.currentPath} />
 						{/each}
 					</div>
 				</Card.Root>

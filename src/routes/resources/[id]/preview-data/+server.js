@@ -3,8 +3,8 @@ import { loadResourceDetail } from "$domains/resources";
 
 /** @type {import("./$types").RequestHandler} */
 export async function GET({ params, fetch }) {
-	const id = Number(params.id);
-	if (!Number.isFinite(id)) {
+	const id = params.id.trim();
+	if (!id) {
 		throw error(404, "Resource not found");
 	}
 

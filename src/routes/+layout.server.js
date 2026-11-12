@@ -1,13 +1,15 @@
 import { resolveApiUrl } from '../core/env/server.js'
 import { requestJson } from '../core/http/client.js'
 import { newConfig } from '$lib/stores/config.svelte.js'
+import { contentServiceUnavailableStatus } from '$lib/server/content-service-status.js'
 import {
     decodeAccessTokenClaims,
-    extractRolesFromClaims,
     getSessionState,
     validateAccessToken
 } from '$domains/auth/index.js'
 import { ONBOARDED_ROLE } from '$lib/auth/rbac.js';
+import { resolveSessionRoles } from '$lib/auth/session-roles.js';
+import { analyticsLayout } from '$lib/server/analytics.js';
 
 /**
  * @param {unknown} value
@@ -43,7 +45,8 @@ function mapViewer(value, isAuthenticated) {
 }
 
 /** @type {import("./$types").LayoutServerLoad} */
-export const load = async ({ cookies, fetch }) => {
+export const load = async (event) => {
+    const { cookies, fetch, locals } = event;
 
     const session = getSessionState(cookies)
     /** @type {string | null} */
@@ -65,11 +68,11 @@ export const load = async ({ cookies, fetch }) => {
         if (tokenValidation.ok) {
             accessToken = session.accessToken
             claims = decodeAccessTokenClaims(session.accessToken)
-            roles = extractRolesFromClaims(claims)
+            roles = locals?.roles ?? await resolveSessionRoles({ accessToken, fetch })
             viewer.isAuthenticated = true
 
             try {
-                const response = await requestJson(resolveApiUrl("users/me/profile"), {
+                const response = await requestJson(resolveApiUrl("users/me"), {
                     fetchFn: fetch,
                     headers: {
                         Authorization: `Bearer ${accessToken}`
@@ -86,14 +89,19 @@ export const load = async ({ cookies, fetch }) => {
     }
 
     const properties = newConfig()
+    /** @type {import("$lib/server/content-service-status.js").ContentServiceStatus | null} */
+    let contentService = null
     try {
-        await properties.loadConfig()
+        await properties.loadConfig(fetch)
     } catch {
         // Allow the app to render with local fallbacks when site settings are unavailable.
+        contentService = contentServiceUnavailableStatus()
     }
 
     return {
+        analytics: await analyticsLayout(event),
         config: properties.config,
+        contentService,
         acs_tkn: accessToken,
         auth: {
             isAuthenticated: Boolean(accessToken),

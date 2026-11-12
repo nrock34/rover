@@ -4,9 +4,9 @@ import {
 	objectOrNull,
 	stringArray,
 	textOrEmpty,
-	toFiniteNumber,
-	toNullableFiniteNumber
+	toFiniteNumber
 } from "../../core/domain/coerce.js";
+import { adaptGraphqlConnection } from "../../core/graphql/connection.js";
 
 const PROGRAM_PLACEHOLDER_IMAGE =
 	"https://images.pexels.com/photos/28838309/pexels-photo-28838309.jpeg";
@@ -100,7 +100,7 @@ export function mapProgramCard(program) {
 	const location = objectOrNull(program.location);
 	const requirements = objectOrNull(program.requirements);
 	const cost = mapCosts(objectOrNull(program.cost));
-	const id = toFiniteNumber(program.id);
+	const id = textOrEmpty(program.id);
 
 	return {
 		id,
@@ -120,7 +120,7 @@ export function mapProgramCard(program) {
 		image: textOrEmpty(program.image) || PROGRAM_PLACEHOLDER_IMAGE,
 		featured: Boolean(program.featured),
 		requirements: mapRequirements(requirements),
-		href: `/programs/${id}`
+		href: `/programs/${encodeURIComponent(id)}`
 	};
 }
 
@@ -236,14 +236,14 @@ export function mapProgramDetail(program, university = null) {
 	const academics = mapAcademics(objectOrNull(program.academics));
 	const housing = mapHousing(objectOrNull(program.accomodations ?? program.accommodations));
 	const providerName = textOrEmpty(provider?.name) || "Program Provider";
-	const id = toFiniteNumber(program.id);
+	const id = textOrEmpty(program.id);
 
 	return {
 		id,
 		title: textOrEmpty(program.title),
 		provider: {
 			name: providerName,
-			universityId: toNullableFiniteNumber(provider?.university)
+			universityId: textOrEmpty(provider?.university) || null
 		},
 		location: {
 			city: textOrEmpty(location?.city),
@@ -269,7 +269,7 @@ export function mapProgramDetail(program, university = null) {
 		applicationLink: textOrEmpty(program.application_link) || null,
 		infoLink: textOrEmpty(program.info_link) || null,
 		university: mapUniversity(university, providerName),
-		href: `/programs/${id}`
+		href: `/programs/${encodeURIComponent(id)}`
 	};
 }
 
@@ -287,4 +287,72 @@ export function getProgramDetailMissingFields(program) {
 	if (!textOrEmpty(program.description) && !textOrEmpty(program.fullDescription)) missing.push("description");
 
 	return missing;
+}
+/** @param {unknown} asset @returns {string} */
+function assetUrl(asset) {
+	const item = objectOrNull(asset);
+	const file = objectOrNull(item?.file);
+	return typeof file?.url === "string" ? file.url : typeof item?.source_url === "string" ? item.source_url : "";
+}
+
+/** @param {unknown} value @returns {string} */
+function stringifyRequirement(value) {
+	if (typeof value === "string") return value;
+	if (Array.isArray(value)) return value.filter((item) => typeof item === "string").join(", ");
+	return "";
+}
+
+/**
+ * @param {unknown} value
+ * @returns {Record<string, unknown>}
+ */
+export function adaptGraphqlProgram(value) {
+	const program = objectOrNull(value) ?? {};
+	const provider = objectOrNull(program.provider);
+	const university = objectOrNull(provider?.university);
+	const contact = objectOrNull(provider?.contact);
+	const address = objectOrNull(contact?.address);
+	const location = objectArray(program.locations)[0] ?? {};
+	const universityLocation = objectOrNull(university?.location);
+	const requirements = objectOrNull(program.requirements);
+	return {
+		...program,
+		id: program.documentId,
+		provider: provider ? {
+			...provider,
+			id: provider.documentId,
+			university: university?.documentId ?? null,
+			contact: contact ? {
+				...contact,
+				address: address ? {
+					...address,
+					state: address.state ?? address.country ?? ""
+				} : null
+			} : null
+		} : null,
+		university,
+		location: {
+			...location,
+			country: universityLocation?.country_name ?? university?.country ?? ""
+		},
+		fields: objectArray(program.fields),
+		image: assetUrl(program.image),
+		gallery: objectArray(program.gallery).map(assetUrl).filter(Boolean),
+		requirements: requirements ? {
+			...requirements,
+			prerequisites: stringifyRequirement(requirements.prerequisites),
+			active_credits_needed: requirements.active_credits_needed == null ? "" : String(requirements.active_credits_needed)
+		} : null,
+		application_steps: objectArray(program.application_steps),
+		testimonials: objectArray(program.testimonials).map((testimonial) => ({
+			...testimonial,
+			program: program.title,
+			avatar: ""
+		}))
+	};
+}
+
+/** @param {unknown} value */
+export function adaptProgramsConnection(value) {
+	return adaptGraphqlConnection(value, "programs", adaptGraphqlProgram);
 }

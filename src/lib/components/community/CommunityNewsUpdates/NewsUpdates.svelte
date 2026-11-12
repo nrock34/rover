@@ -15,8 +15,8 @@
 	const visibleUpdates = $derived(updates.slice(0, md ? 1 : 4));
 </script>
 
-<section class="flex w-full">
-	<div class="page-shell mx-auto w-full px-6 py-6 sm:px-10 md:px-14 lg:px-18 xl:px-22">
+<section class="community-news-original flex w-full">
+	<div class="app-shell py-6">
 		<div class="mb-3 flex items-center justify-between gap-4">
 			<div class="flex items-center space-x-2 leading-tight">
 				<Bell class="h-6 w-6 text-primary" />
@@ -26,10 +26,7 @@
 				</div>
 			</div>
 			<div class="flex items-center space-x-3">
-				<div class="flex items-center space-x-1">
-					<div class="h-2 w-2 rounded-full bg-destructive animate-pulse"></div>
-					<span class="text-xs text-secondary-foreground sm:text-sm">Live</span>
-				</div>
+
 				<Button href={viewAllHref} variant="ghost" class="shrink-0 bg-transparent text-xs text-primary shadow-none hover:bg-secondary/60 sm:text-sm">
 					<span>View All</span>
 					<ExternalLink class="h-4 w-4" />
@@ -64,7 +61,7 @@
 					</div>
 				</Card.Root>
 
-				<Card.Root class="p-2 py-3.5 gap-2">
+				<Card.Root class="community-deadlines p-2 py-3.5 gap-2">
 					<Card.Header class="px-2.5 py-1">
 						<h3 class="text-xs font-medium">Upcoming Deadlines</h3>
 						<p class="text-[0.615rem] font-light text-muted-foreground">Program & scholarship deadlines</p>

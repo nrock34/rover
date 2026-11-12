@@ -1,137 +1,50 @@
 <script>
     import { Badge } from "$lib/components/ui/badge";
-import { Button } from "$lib/components/ui/button";
+    import { Button } from "$lib/components/ui/button";
     import * as Card from "$lib/components/ui/card";
-    import { Calendar, DollarSign, Globe, MapPin, Star, Users } from "lucide-svelte";
+    import ResilientImage from "$lib/components/shared/ResilientImage.svelte";
+    import { ArrowRight, Calendar, DollarSign, MapPin, Star } from "lucide-svelte";
 
+    let { sortedPrograms, durations } = $props();
 
-    let { savedPrograms = $bindable(), compareList = $bindable(), sortedPrograms, durations } = $props()
-
-    const updateSavedPrograms = (id) => {
-        if(!savedPrograms.delete(id)) {
-            savedPrograms.add(id)
-        }
-    }
-
-    const updateCompareList = (id) => {
-        if(!compareList.delete(id)) {
-            compareList.add(id)
-        }
-    }
-
+    const formatCost = (cost) => {
+        const value = Number(cost);
+        return Number.isFinite(value) && value > 0
+            ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value)
+            : "Ask provider";
+    };
 </script>
 
+<div class="flex flex-col gap-5">
+    {#each sortedPrograms as program (program.id)}
+        {@const durationLabel = durations.find((option) => option.id === program.duration)?.name.split("-")[0] ?? program.duration}
 
+        <Card.Root class="group grid min-h-64 grid-cols-1 gap-0 overflow-hidden rounded-xl border-border bg-card p-0 shadow-sm transition-[border-color,box-shadow] hover:border-primary/30 hover:shadow-md motion-reduce:transition-none md:grid-cols-[minmax(14rem,0.34fr)_minmax(0,0.66fr)]">
+            <div class="relative min-h-72 overflow-hidden bg-muted md:min-h-full">
+                <ResilientImage src={program.image} fallbackSrc="https://images.pexels.com/photos/28838309/pexels-photo-28838309.jpeg" alt={program.title} loading="lazy" class="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.025] motion-reduce:transition-none motion-reduce:group-hover:scale-100" />
+                <div class="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/20" aria-hidden="true"></div>
+                {#if program.featured}<Badge class="absolute left-4 top-4 bg-primary text-primary-foreground">Featured</Badge>{/if}
+            </div>
 
-
-<div class="space-y-4 flex-1 flex flex-col w-full">
-
-    {#each sortedPrograms as program}
-        
-        {@const programDurationLabel = durations.find((d) => program.duration === d.id)?.name.split('-')[0]}
-        {@const isSaved = savedPrograms.has(program.id)}
-        {@const isComparing = compareList.has(program.id)}
-
-        <Card.Root
-            key={program.id}
-            class="flex-1 max-w-full overflow-hidden border-border/70 bg-gradient-to-br from-card via-card to-muted/12 p-0 shadow-sm transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-md"
-        >
-            <div class="flex w-full flex-col items-stretch sm:flex-row">
-                <img
-                    src={program.image}
-                    alt={program.title}
-                    class="h-32 w-full object-cover sm:h-auto sm:w-36" 
-                />
-
-                <div class="flex flex-1 flex-col justify-between p-4">
-                    <div class="mb-3 flex items-start justify-between gap-4">
-                        <div class="min-w-0">
-                            <div class="space-y-1.5">
-                                <div class="space-y-1">
-                                    <p class="text-[0.68rem] font-medium uppercase tracking-[0.2em] text-primary/95">{program.provider}</p>
-                                    <div class="flex items-center gap-1">
-                                        <MapPin class="h-3 w-3 text-primary/85"/>
-                                        <span class="text-xs text-muted-foreground">{program.location}</span>
-                                    </div>
-                                </div>
-                                <div class="flex flex-wrap items-center gap-2">
-                                <a
-                                    href={`/programs/${program.id}`}
-                                    class="text-[0.98rem] font-semibold leading-snug tracking-tight text-foreground transition-colors hover:text-primary"
-                                >
-                                    {program.title}
-                                </a>
-                                {#if program.featured}
-                                    <Badge class="bg-primary/92 text-xs text-primary-foreground">Featured</Badge>
-                                {/if}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="flex items-center gap-2">
-                            <div class="flex items-center gap-1 rounded-full border border-border/70 bg-secondary/45 px-2 py-0.75 shadow-sm">
-                                <Star class="tone-star h-3 w-3 fill-current"/>
-                                <span class="text-xs font-semibold text-foreground">{program.rating}</span>
-                            </div>
-                        </div>
+            <div class="flex min-w-0 flex-col justify-between gap-4 p-[clamp(1.25rem,2.5vw,2rem)]">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="min-w-0">
+                        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-primary">{program.provider}</p>
+                        <a href={program.href} class="mt-2 block text-2xl font-semibold leading-tight tracking-tight transition-colors hover:text-primary">{program.title}</a>
+                        <p class="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground"><MapPin class="size-4 text-primary" /> {program.location}</p>
                     </div>
+                    {#if Number(program.rating) > 0}<span class="flex shrink-0 items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs font-semibold"><Star class="size-3.5 fill-current text-yellow-500" /> {program.rating}</span>{/if}
+                </div>
 
-                    <p class="mb-3 line-clamp-2 text-xs leading-5 text-secondary-foreground/95">
-                        {program.description}
-                    </p>
+                <p class="line-clamp-2 text-sm leading-6 text-muted-foreground">{program.description}</p>
 
-                    <div class="mb-3 grid gap-0 border-y border-border/55 py-2 sm:grid-cols-2 lg:grid-cols-4">
-                        <div class="border-b border-border/55 px-2.5 py-1 sm:border-r lg:border-b-0">
-                            <div class="flex items-center gap-2 text-secondary-foreground">
-                                <Calendar class="h-3 w-3 text-primary/85"/>
-                                <span class="text-[0.64rem] uppercase tracking-[0.16em]">Duration</span>
-                            </div>
-                            <p class="mt-0.5 text-[0.8rem] font-medium capitalize leading-5 text-foreground">{programDurationLabel}</p>
-                        </div>
-                        <div class="border-b border-border/55 px-2.5 py-1 lg:border-b-0 lg:border-r">
-                            <div class="flex items-center gap-2 text-secondary-foreground">
-                                <DollarSign class="h-3 w-3 text-primary/85"/>
-                                <span class="text-[0.64rem] uppercase tracking-[0.16em]">Cost</span>
-                            </div>
-                            <p class="mt-0.5 text-[0.8rem] font-medium leading-5 text-foreground">{program.cost}</p>
-                        </div>
-                        <div class="px-2.5 py-1 sm:border-r sm:border-border/55">
-                            <div class="flex items-center gap-2 text-secondary-foreground">
-                                <Users class="h-3 w-3 text-primary/85"/>
-                                <span class="text-[0.64rem] uppercase tracking-[0.16em]">Students</span>
-                            </div>
-                            <p class="mt-0.5 text-[0.8rem] font-medium leading-5 text-foreground">{program.participants}</p>
-                        </div>
-                        <div class="px-2.5 py-1">
-                            <div class="flex items-center gap-2 text-secondary-foreground">
-                                <Globe class="h-3 w-3 text-primary/85"/>
-                                <span class="text-[0.64rem] uppercase tracking-[0.16em]">Language</span>
-                            </div>
-                            <p class="mt-0.5 text-[0.8rem] font-medium capitalize leading-5 text-foreground">{program.language}</p>
-                        </div>
+                <div class="grid items-center gap-4 border-t border-border pt-4 lg:grid-cols-[auto_minmax(0,1fr)_auto]">
+                    <div class="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                        <span class="flex items-center gap-1.5"><Calendar class="size-4 text-primary" /><strong class="text-foreground">{durationLabel}</strong></span>
+                        <span class="flex items-center gap-1.5"><DollarSign class="size-4 text-primary" /><strong class="text-foreground">{formatCost(program.cost)}</strong></span>
                     </div>
-
-                    <div class="flex flex-col gap-3 border-t border-border/60 pt-3 lg:flex-row lg:items-center lg:justify-between">
-                        <div class="flex flex-wrap gap-2">
-                            {#each program.highlights.slice(0, 4) as highlight, idx}
-                                <span
-                                    key={idx}
-                                    class="rounded-full border border-border/60 bg-muted/70 px-2 py-0.75 text-[0.68rem] font-medium text-secondary-foreground"
-                                >
-                                    {highlight}
-                                </span>
-                            {/each}
-                        </div>
-
-                        <div class="flex items-center space-x-3">
-                            <Button 
-                                class="h-9 text-xs shadow-sm"
-                                href={`/programs/${program.id}`}
-                            >
-                                View Details
-                            </Button>
-                        </div>
-                    </div>
+                    <div class="flex flex-wrap gap-1.5 lg:justify-end">{#each program.highlights.slice(0, 2) as highlight}<Badge variant="outline" class="text-xs">{highlight}</Badge>{/each}</div>
+                    <Button href={program.href} variant="ghost" class="h-auto justify-start px-0 py-1 text-sm font-semibold text-primary shadow-none">View program <ArrowRight class="size-4" /></Button>
                 </div>
             </div>
         </Card.Root>

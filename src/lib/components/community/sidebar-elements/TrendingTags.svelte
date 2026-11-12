@@ -5,12 +5,12 @@
 	let { tags = [] } = $props();
 </script>
 
-<Card.Root class="gap-2 px-4 py-5 sm:gap-3 sm:px-6">
-	<Card.Header class="flex items-center p-0">
+<Card.Root class="community-module community-trending">
+	<Card.Header class="community-module-heading">
 		<TrendingUp class="h-4 w-4 text-primary/80 sm:h-6 sm:w-6" />
-		<h3 class="text-sm font-semibold text-foreground">Trending Topics</h3>
+		<h2>Trending Topics</h2>
 	</Card.Header>
-	<Card.Content class="space-y-0.5 p-0 sm:space-y-1.5">
+	<Card.Content class="p-0">
 		{#if tags.length === 0}
 			<p class="py-2 text-xs text-muted-foreground">No trending topics yet.</p>
 		{:else}

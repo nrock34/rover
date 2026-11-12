@@ -68,16 +68,17 @@ export async function loginUser(payload, deps) {
 	try {
 		assertLoginPayload(payload);
 		const { apiUrl } = assertRequiredAuthEnv();
-			const response = await requestJson(buildApiUrl("auth/login", {}, apiUrl), {
+		const response = await requestJson(buildApiUrl("auth/local", {}, apiUrl), {
 			method: "POST",
-			body: payload,
+			body: { identifier: payload.email, password: payload.password },
 			fetchFn: deps.fetch,
-			credentials: "include"
+			credentials: "include",
+			headers: { "x-strapi-refresh-cookie": "httpOnly" }
 		});
 
 		if (!response.ok) {
 			const failure = asHttpFailure(response);
-			if (response.status === 403) {
+			if ([400, 401, 403].includes(response.status)) {
 				return {
 					ok: false,
 					error: makeError("invalid_creds", "The information provided doesn't match that of any user.", { status: 403 })
@@ -157,8 +158,9 @@ export async function logoutUser({ fetch: fetchFn, cookies, accessToken = null }
 			headers.set("Authorization", `Bearer ${accessToken}`);
 		}
 
-			const response = await requestJson(buildApiUrl("auth/logout", {}, apiUrl), {
+		const response = await requestJson(buildApiUrl("auth/logout", {}, apiUrl), {
 			method: "POST",
+			body: { refreshToken: validRefreshToken },
 			fetchFn,
 			headers,
 			expectJson: false
@@ -199,11 +201,18 @@ export async function signupUser(payload, deps) {
 	try {
 		assertSignupPayload(payload);
 		const { apiUrl } = assertRequiredAuthEnv();
-			const response = await requestJson(buildApiUrl("auth/register-tkn", {}, apiUrl), {
+		const response = await requestJson(buildApiUrl("auth/local/register", {}, apiUrl), {
 			method: "POST",
-			body: payload,
+			body: {
+                username: payload.username,
+                email: payload.email,
+                password: payload.password,
+                first_name: payload.first_name,
+                last_name: payload.last_name
+            },
 			fetchFn: deps.fetch,
-			credentials: "include"
+			credentials: "include",
+			headers: { "x-strapi-refresh-cookie": "httpOnly" }
 		});
 
 		if (!response.ok) {
@@ -230,7 +239,7 @@ export async function signupUser(payload, deps) {
 		}
 
 		const data = assertLoginResponse(response.data);
-		if (!getRefreshTokenSetCookie(response.headers)) {
+		if (!getRefreshTokenSetCookie(response.headers) && !isSafeRefreshTokenCookieValue(data.refreshToken)) {
 			return {
 				ok: false,
 				error: makeError("invalid_response", "Signup response is missing the refresh-token cookie.", { status: 502 })
@@ -273,11 +282,13 @@ export async function refreshSession({ fetch: fetchFn, cookies }) {
 		const { apiUrl } = assertRequiredAuthEnv();
 
 		const headers = new Headers({
-			Cookie: `${REFRESH_COOKIE_NAME}=${refreshToken}`
+			Cookie: `${REFRESH_COOKIE_NAME}=${refreshToken}`,
+			"x-strapi-refresh-cookie": "httpOnly"
 		});
 
-			const response = await requestJson(buildApiUrl("auth/refresh", {}, apiUrl), {
+		const response = await requestJson(buildApiUrl("auth/refresh", {}, apiUrl), {
 			method: "POST",
+			body: { refreshToken },
 			fetchFn,
 			headers
 		});

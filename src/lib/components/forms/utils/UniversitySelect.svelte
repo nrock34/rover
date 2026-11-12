@@ -5,7 +5,7 @@
     import * as Popover from "$lib/components/ui/popover";
     import { Check, ChevronsUpDown } from "lucide-svelte";
 
-    let { value = $bindable(), className , formProps, data, onchange = () => {} } = $props()
+    let { value = $bindable(), className , formProps = {}, closeOnSelect = false, data, onchange = () => {} } = $props()
     let searchValue = $state('')
     let open = $state(false)
     
@@ -22,6 +22,7 @@
             {#snippet child({ props })}
                 <Button
                     {...props}
+                    {...formProps}
                     variant="outline"
                     role="combobox"
                     class="w-full h-full"
@@ -52,6 +53,7 @@
                                 () => {
                                     value = uni.value
                                     onchange()
+                                    if (closeOnSelect) open = false
                                 }
                             }
                         >

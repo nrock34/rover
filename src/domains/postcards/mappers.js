@@ -1,5 +1,7 @@
-import { isObject, objectOrNull, textOrEmpty, toFiniteNumber, toNullableFiniteNumber } from "../../core/domain/coerce.js";
+import { isObject, objectArray, objectOrNull, textOrEmpty, toFiniteNumber, toNullableFiniteNumber } from "../../core/domain/coerce.js";
 import { escapeHtml, sanitizeLegacyHtml, sanitizeUrl } from "./sanitize.js";
+import { parsePostcardEditorDocument } from "./contracts.js";
+import { adaptGraphqlConnection } from "../../core/graphql/connection.js";
 
 const POSTCARD_FALLBACK_DESCRIPTION = "A travel story from the RomeWithMe community.";
 
@@ -38,7 +40,6 @@ function resolveAssetUrl(value, apiUrl) {
  * @returns {import("./types.js").PostcardId | null}
  */
 function mapNullableId(value) {
-	if (typeof value === "number" && Number.isFinite(value)) return value;
 	if (typeof value === "string" && value.trim()) return value.trim();
 	return null;
 }
@@ -48,7 +49,7 @@ function mapNullableId(value) {
  * @returns {import("./types.js").PostcardId}
  */
 function mapId(value) {
-	return mapNullableId(value) ?? 0;
+	return mapNullableId(value) ?? "";
 }
 
 /**
@@ -211,7 +212,8 @@ function mapBlock(block, index, apiUrl) {
 
 	if (["image", "photo"].includes(kind)) {
 		const file = objectOrNull(data.file);
-		const src = resolveAssetUrl(data.src ?? data.url ?? data.image ?? file?.url, apiUrl);
+		const asset = objectOrNull(data.asset);
+		const src = resolveAssetUrl(data.src ?? data.url ?? data.image ?? file?.url ?? asset?.public_url, apiUrl);
 		if (!src) return [];
 		return [{
 			kind: "image",
@@ -371,19 +373,102 @@ function estimateReadingMinutes(blocks) {
 }
 
 /**
+ * @param {import("./types.js").PostcardEditorDocument | null} document
+ * @param {string} apiUrl
+ * @returns {import("./types.js").PostcardEditorDocument | null}
+ */
+function resolveEditorDocumentAssets(document, apiUrl) {
+	if (!document) return null;
+	const sourceDocument = document;
+	/** @param {import("./types.js").PostcardEditorBlock} block */
+	const mapBlockAssets = (block) => {
+		const data = objectOrNull(block.data);
+		if (!data) return block;
+		const nextData = { ...data };
+		if (block.type === "image") {
+			const asset = objectOrNull(data.asset);
+			const src = resolveAssetUrl(asset?.public_url ?? data.src, apiUrl);
+			if (src) nextData.src = src;
+			if (!nextData.alt && asset?.alt_text) nextData.alt = text(asset.alt_text);
+			if (!nextData.caption && asset?.caption) nextData.caption = text(asset.caption);
+		} else if (block.type === "slideshow" && Array.isArray(data.slides)) {
+			nextData.slides = data.slides.map((slide) => {
+				const slideAsset = objectOrNull(slide?.asset);
+				const src = resolveAssetUrl(slideAsset?.public_url ?? slide?.src, apiUrl);
+				return { ...slide, ...(src ? { src } : {}), ...(!slide?.alt && slideAsset?.alt_text ? { alt: text(slideAsset.alt_text) } : {}) };
+			});
+		} else if (block.type === "layout" && Array.isArray(data.columns)) {
+			nextData.columns = data.columns.map((column) => ({ ...column, blocks: Array.isArray(column?.blocks) ? column.blocks.map(mapBlockAssets) : [] }));
+		}
+		return { ...block, data: nextData };
+	};
+	return /** @type {import("./types.js").PostcardEditorDocument} */ ({ ...sourceDocument, blocks: sourceDocument.blocks.map(mapBlockAssets) });
+}
+/**
+ * @param {import("./types.js").PostcardEditorDocument} document
+ * @returns {Array<{ src: string; alt: string }>}
+ */
+function extractEditorGallery(document) {
+	/** @type {Array<{ src: string; alt: string }>} */
+	const images = [];
+	/** @param {import("./types.js").PostcardEditorBlock} block */
+	const visit = (block) => {
+		const data = objectOrNull(block.data);
+		if (!data) return;
+		if (block.type === "image") {
+			const asset = objectOrNull(data.asset);
+			const src = text(data.src ?? asset?.public_url);
+			if (src) images.push({ src, alt: text(data.alt ?? asset?.alt_text) || "Postcard article image" });
+		} else if (block.type === "slideshow" && Array.isArray(data.slides)) {
+			data.slides.forEach((slide) => {
+				const asset = objectOrNull(slide?.asset);
+				const src = text(slide?.src ?? asset?.public_url);
+				if (src) images.push({ src, alt: text(slide?.alt ?? asset?.alt_text) || "Postcard article image" });
+			});
+		} else if (block.type === "layout" && Array.isArray(data.columns)) data.columns.forEach((column) => (column.blocks ?? []).forEach(visit));
+	};
+
+	document.blocks.forEach(visit);
+	return images;
+}
+/**
+ * @param {import("./types.js").PostcardEditorDocument} document
+ * @returns {number}
+ */
+function estimateEditorReadingMinutes(document) {
+	/** @type {string[]} */
+	const words = [];
+	/** @param {import("./types.js").PostcardEditorBlock} block */
+	const visit = (block) => {
+		const data = objectOrNull(block.data);
+		if (!data) return;
+		for (const value of [data.text, data.question, data.attribution]) if (typeof value === "string") words.push(value);
+		if (Array.isArray(data.options)) data.options.forEach((option) => { if (typeof option?.label === "string") words.push(option.label); });
+		if (block.type === "layout" && Array.isArray(data.columns)) data.columns.forEach((column) => (column.blocks ?? []).forEach(visit));
+	};
+	document.blocks.forEach(visit);
+	return Math.max(1, Math.ceil(words.join(" ").split(/\s+/u).filter(Boolean).length / 220));
+}
+
+
+/**
  * @param {Record<string, unknown>} postcard
  * @param {{ apiUrl: string }} options
  * @returns {import("./types.js").PostcardDetail}
  */
 export function mapPostcardDetail(postcard, { apiUrl }) {
 	const card = mapPostcardCard(postcard, { apiUrl });
-	const rawBlocks = findBlockArray(postcard);
+	const parsedEditorDocument = parsePostcardEditorDocument(postcard.content);
+	const editorDocument = resolveEditorDocumentAssets(parsedEditorDocument, apiUrl);
+	const rawBlocks = editorDocument ? null : findBlockArray(postcard);
 	/** @type {import("./types.js").PostcardArticleBlock[]} */
 	let articleBlocks = [];
-	/** @type {"modular" | "legacy_html" | "empty"} */
+	/** @type {"editorjs" | "modular" | "legacy_html" | "empty"} */
 	let contentFormat = "empty";
 
-	if (rawBlocks) {
+	if (editorDocument) {
+		contentFormat = "editorjs";
+	} else if (rawBlocks) {
 		articleBlocks = rawBlocks.flatMap((block, index) => mapBlock(block, index, apiUrl));
 		contentFormat = "modular";
 	} else if (typeof postcard.content === "string" && postcard.content.trim()) {
@@ -399,8 +484,61 @@ export function mapPostcardDetail(postcard, { apiUrl }) {
 		...card,
 		articleBlocks,
 		contentFormat,
-		gallery: extractGallery(articleBlocks),
-		readingMinutes: estimateReadingMinutes(articleBlocks),
+		editorDocument,
+		gallery: editorDocument ? extractEditorGallery(editorDocument) : extractGallery(articleBlocks),
+		readingMinutes: editorDocument ? estimateEditorReadingMinutes(editorDocument) : estimateReadingMinutes(articleBlocks),
 		seoDescription
 	};
+}
+/** @param {unknown} value @returns {Record<string, unknown> | null} */
+function adaptTaxonomy(value) {
+	const item = objectOrNull(value);
+	return item ? { ...item, id: item.documentId } : null;
+}
+
+/**
+ * Reshapes the GraphQL Article into the existing postcard mapper input.
+ * @param {unknown} value
+ * @returns {Record<string, unknown>}
+ */
+export function adaptGraphqlPostcard(value) {
+	const article = objectOrNull(value) ?? {};
+	const author = objectOrNull(article.author);
+	const banner = objectOrNull(article.banner_img);
+	return {
+		...article,
+		id: article.documentId,
+		category: adaptTaxonomy(article.category),
+		tags: objectArray(article.tags).map(adaptTaxonomy).filter((item) => item !== null),
+		author: author ? { ...author, id: author.documentId } : null,
+		banner_img: banner?.public_url ?? null,
+		gallery: objectArray(article.gallery).map((asset) => ({ ...asset, id: asset.documentId })),
+		created_at: article.createdAt,
+		updated_at: article.updatedAt,
+		published_at: article.publishedAt
+	};
+}
+
+/**
+ * @param {unknown} value
+ * @returns {{ nodes: Record<string, unknown>[]; pageInfo: { total: number; page: number; pageSize: number; pageCount: number }; categories: string[]; tags: string[] }}
+ */
+export function adaptPostcardDirectoryEnvelope(value) {
+	const data = objectOrNull(value) ?? {};
+	const taxonomyNames = (/** @type {unknown} */ root) => objectArray(objectOrNull(root)?.nodes)
+		.map((item) => typeof item.name === "string" ? item.name.trim() : "")
+		.filter(Boolean);
+	return {
+		...adaptGraphqlConnection(data, "articles", adaptGraphqlPostcard),
+		categories: taxonomyNames(data.articleCategories),
+		tags: taxonomyNames(data.articleTags)
+	};
+}
+
+/** @param {unknown} value @returns {Record<string, unknown> | null} */
+export function adaptPostcardDetailEnvelope(value) {
+	const data = objectOrNull(value);
+	const articles = objectOrNull(data?.articles);
+	const first = objectArray(articles?.nodes)[0];
+	return first ? adaptGraphqlPostcard(first) : null;
 }

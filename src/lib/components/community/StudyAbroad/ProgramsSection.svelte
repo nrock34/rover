@@ -5,8 +5,8 @@
 	import { Calendar, Clock, ExternalLink, Globe, MapPin, Star, Users } from "lucide-svelte";
 	import { getDeadlineLabel } from "$domains/community/mappers.js";
 
-	let selectedRegion = $state("all");
-	let { programs = [], limit = 3, cardClass = "" } = $props();
+
+	let { programs = [], limit = 3, cardClass = "", selectedRegion = $bindable("all") } = $props();
 
 	const regions = [
 		{ id: "all", name: "All" },
@@ -25,22 +25,22 @@
 	);
 </script>
 
-<Card.Root class={`gap-2 ${cardClass}`.trim()}>
-	<Card.Header class="mb-0 flex items-center justify-between">
+<Card.Root class={`community-module community-opportunities ${cardClass}`.trim()}>
+	<Card.Header class="community-module-heading">
 		<div class="flex items-center gap-2">
 			<Globe class="h-5 w-5 text-primary sm:h-6 sm:w-6" />
 			<h2 class="text-sm font-bold text-foreground sm:text-base md:text-lg">Study Abroad Programs</h2>
 		</div>
-		<Button href="/programs" variant="ghost" class="text-primary shadow-none hover:bg-transparent hover:text-accent-foreground">
+		<Button href="/programs" variant="ghost" class="community-module-link">
 			<span class="flex items-center gap-1 text-xs font-medium">View All</span>
 			<ExternalLink class="h-3 w-3" />
 		</Button>
 	</Card.Header>
 
 	<Card.Content>
-		<div class="mb-4 flex flex-wrap gap-1">
+		<div class="community-module-filters">
 			{#each regions as region}
-				<Button onclick={() => (selectedRegion = region.id)} variant={selectedRegion === region.id ? "secondary" : "outline"} class="h-7 px-2 text-xs lg:text-sm">
+				<Button aria-pressed={selectedRegion === region.id} onclick={() => (selectedRegion = region.id)} variant={selectedRegion === region.id ? "secondary" : "outline"} class="community-filter-option">
 					{region.name}
 				</Button>
 			{/each}
@@ -49,7 +49,7 @@
 		<div class="space-y-3">
 			{#if filteredPrograms.length > 0}
 				{#each filteredPrograms.slice(0, limit) as program (program.id)}
-					<div class={`rounded-(--radius) border p-4 hover:shadow-sm ${program.featured ? "border-ring/40 bg-ring/5" : "border-border bg-card"}`}>
+					<div class={`community-opportunity rounded-(--radius) border p-4 ${program.featured ? "border-ring/40 bg-ring/5" : "border-border bg-card"}`}>
 						<div class="mb-2 flex items-start justify-between gap-3">
 							<div class="flex-1">
 								<div class="mb-1 flex items-center gap-1">
@@ -109,7 +109,7 @@
 		</div>
 	</Card.Content>
 
-	<div class="mt-3 text-center">
+	<div class="community-module-footer">
 		<Button href="/programs" class="text-action-sm sm:text-[0.9rem]">Explore All Programs</Button>
 	</div>
 </Card.Root>

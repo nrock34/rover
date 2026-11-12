@@ -3,7 +3,7 @@
     import { globalBackgroundSchema } from "../schema";
     import * as Card from "$lib/components/ui/card";
     import { superForm } from "sveltekit-superforms";
-    import { ChevronLeft, ChevronRight } from "lucide-svelte";
+    import { ChevronLeft, ChevronRight, Check } from "lucide-svelte";
     import * as ToggleGroup from "$lib/components/ui/toggle-group";
 
     import backpackSvg from "$lib/assets/backpack-bag-outline-svgrepo-com.svg";
@@ -37,10 +37,12 @@
 
     const form = superForm(data.form, {
         dataType: "json",
+        multipleSubmits: "prevent",
+        onError: ({ message }) => message.set({ msg: "We couldn’t finish onboarding. Check your connection and try again." }),
         validators: yupClient(globalBackgroundSchema),
         onSubmit: ({ jsonData }) => {
             const academicPayload = data.academicPayload ??
-                readStoredJson(ONBOARDING_STORAGE_KEYS.academicStep);
+                (data.preview ? null : readStoredJson(ONBOARDING_STORAGE_KEYS.academicStep));
 
             jsonData({
                 ...$formData,
@@ -48,7 +50,7 @@
             });
         },
         onResult: ({ result }) => {
-            if (result.type === "redirect") {
+            if (result.type === "redirect" && !data.preview) {
                 removeStoredValue(ONBOARDING_STORAGE_KEYS.academicFields);
                 removeStoredValue(ONBOARDING_STORAGE_KEYS.academicStep);
             } else if (result.type === "failure") {
@@ -60,7 +62,13 @@
         }
     });
 
-    const { form: formData, enhance } = form;
+    const { form: formData, enhance, errors, message, submitting } = form;
+    let heading;
+    function goBack() {
+        data.GlobalBackgroundForm = { ...data.form, data: $formData };
+        data.form = data.prevForm;
+        currentFormId = ONBOARDING_STEP_IDS.academic;
+    }
 
     const travelExperienceOptions = [
         { label: "0 countries", value: "none", icon: backpackSvg },
@@ -73,7 +81,7 @@
         { label: "Americas", value: "americas", icon: americasSvg },
         { label: "West Asia", value: "wasia", icon: ausasiaSvg },
         { label: "East Asia", value: "easia", icon: ausasiaSvg },
-        { label: "Northen Europe", value: "neurope", icon: eurafricaSvg },
+        { label: "Northern Europe", value: "neurope", icon: eurafricaSvg },
         { label: "Southern Europe", value: "seurope", icon: eurafricaSvg },
         { label: "Northern Africa", value: "nafrica", icon: eurafricaSvg },
         { label: "Southern Africa", value: "safrica", icon: eurafricaSvg },
@@ -95,6 +103,8 @@
     });
 
     onMount(() => {
+        heading?.focus({ preventScroll: true });
+        if (data.preview) return;
         const academicBackgroundFormData = readStoredJson(
             ONBOARDING_STORAGE_KEYS.academicFields
         );
@@ -116,90 +126,64 @@
 </script>
 
 
-<Card.Root class="mx-auto w-full max-w-3xl p-8 sm:px-10 sm:py-10">
-    <h1 class="text-2xl font-serif font-medium text-center">Travel Experience & Global Interests</h1>
-    <form class="px-4 text-center" method="POST" action={"?/globalBackground"} use:enhance>
-        <div class="flex flex-col w-full">
-            <div class="flex flex-col space-y-3">
-                <label for="travelExperience" class="font-medium text-md sm:text-lg tracking-normal">How many different countries have you been to?</label>
-                <ToggleGroup.Root
-                    bind:value={$formData.travelExperience}
-                    name="travelExperience"
-                    type="single"
-                    class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 w-full gap-4 px-2"
-                >
-                    {#each travelExperienceOptions as opt}
-                        <ToggleGroup.Item
-                            class={`py-10 sm:py-16 flex flex-col jusitfy-center items-center border-1 border-border rounded-(--radius)`}
-                            value={opt.value}
-                        >
-                            <img alt={`${opt.label} Icon`} class="object-cover flex-1 w-9 sm:w-16" src={opt.icon} />
-                            <span class="text-xs sm:text-sm">{opt.label}</span>
+<Card.Root class="onboarding-card">
+    <Card.Header class="onboarding-card-heading">
+        <Card.Title><h1 bind:this={heading} tabindex="-1">Travel Experience & Global Interests</h1></Card.Title>
+        <Card.Description>Share where you’ve been and where you’d like to go.</Card.Description>
+    </Card.Header>
+    <Card.Content class="onboarding-card-content">
+        <form method="POST" action="?/globalBackground" use:enhance aria-busy={$submitting}>
+            <div class="onboarding-fields onboarding-global-fields">
+                <fieldset class="onboarding-fieldset">
+                    <legend id="travel-question">How many different countries have you been to?</legend>
+                    <ToggleGroup.Root bind:value={$formData.travelExperience} name="travelExperience" aria-labelledby="travel-question" aria-describedby="travel-error" type="single" class="grid grid-cols-2 gap-3 md:grid-cols-4">
+                        {#each travelExperienceOptions as opt}
+                            <ToggleGroup.Item class="onboarding-choice" value={opt.value}>
+                                <img alt="" class="onboarding-option-image" src={opt.icon} />
+                                <span>{opt.label}</span><Check class="choice-check size-4" aria-hidden="true" />
+                            </ToggleGroup.Item>
+                        {/each}
+                    </ToggleGroup.Root>
+                    <p id="travel-error" class="onboarding-error">{($errors.travelExperience ?? []).join(' ')}</p>
+                </fieldset>
+                <fieldset class="onboarding-fieldset">
+                    <legend id="education-question">Have you ever participated in an educational program abroad?</legend>
+                    <ToggleGroup.Root bind:value={$formData.hasTraveledEdu} onValueChange={() => form.validate("hasTraveledEdu")} name="hasTraveledEdu" aria-labelledby="education-question" aria-describedby="education-error" type="single" class="grid grid-cols-2 gap-3">
+                        <ToggleGroup.Item class="onboarding-choice onboarding-yes-no" value={true}>
+                            <img alt="" class="onboarding-option-image" src={thumbsUpSvg} />Yes<Check class="choice-check size-4" aria-hidden="true" />
                         </ToggleGroup.Item>
-                    {/each}
-                </ToggleGroup.Root>
-            </div>
-
-            <div class="flex flex-col space-y-3 mt-10">
-                <label for="hasTraveledEdu" class="font-medium text-md sm:text-lg tracking-normal">Have you ever participated in an educational program abroad?</label>
-                <ToggleGroup.Root bind:value={$formData.hasTraveledEdu} onValueChange={() => { form.validate("hasTraveledEdu"); }} name="hasTraveledEdu" type="single" class="grid grid-cols-2 w-full gap-4 px-2">
-                    <ToggleGroup.Item class="py-10 sm:py-12 flex flex-col jusitfy-center items-center border-1 border-border rounded-(--radius)" value={true}>
-                        <img alt="thumbs up" class="w-9 sm:w-11" src={thumbsUpSvg} />
-                        Yes
-                    </ToggleGroup.Item>
-                    <ToggleGroup.Item class="py-10 sm:py-12 flex flex-col jusitfy-center items-center border-1 border-border rounded-(--radius)" value={false}>
-                        <img alt="thumbs down" class="w-9 sm:w-11 -rotate-180" src={thumbsUpSvg} />
-                        No
-                    </ToggleGroup.Item>
-                </ToggleGroup.Root>
-            </div>
-
-            <div class="flex flex-col space-y-3 mt-8">
-                <label for="otherLanguageSpoken" class="font-medium text-md sm:text-lg tracking-normal">Do you speak/want to speak another language?</label>
-                <div class="flex flex-col space-y-1 pl-2 pr-3">
-                    <Input
-                        bind:value={$formData.otherLanguageSpoken}
-                        class="text-sm"
-                        placeholder="Enter language here..."
-                        name="otherLanguageSpoken"
-                    />
-                    <p class="pl-0.5 text-xs">Enter another language you speak fluently, or want to speak fluently.</p>
+                        <ToggleGroup.Item class="onboarding-choice onboarding-yes-no" value={false}>
+                            <img alt="" class="onboarding-option-image -rotate-180" src={thumbsUpSvg} />No<Check class="choice-check size-4" aria-hidden="true" />
+                        </ToggleGroup.Item>
+                    </ToggleGroup.Root>
+                    <p id="education-error" class="onboarding-error">{($errors.hasTraveledEdu ?? []).join(' ')}</p>
+                </fieldset>
+                <div class="onboarding-field">
+                    <label for="otherLanguageSpoken">Do you speak or want to learn another language? <span class="onboarding-optional">Optional</span></label>
+                    <Input id="otherLanguageSpoken" bind:value={$formData.otherLanguageSpoken} class="h-11" placeholder="e.g. Italian, Spanish" name="otherLanguageSpoken" maxlength={80} aria-describedby="language-help language-error" aria-invalid={Boolean($errors.otherLanguageSpoken?.length)} />
+                    <p id="language-help" class="onboarding-help">Include languages you speak or would like to learn.</p>
+                    <p id="language-error" class="onboarding-error">{($errors.otherLanguageSpoken ?? []).join(' ')}</p>
                 </div>
+                <fieldset class="onboarding-fieldset">
+                    <legend id="regions-question">What regions are you interested in?</legend>
+                    <p id="regions-help" class="onboarding-help mb-3">Select all that interest you.</p>
+                    <ToggleGroup.Root bind:value={$formData.interestedRegions} onValueChange={() => form.validate("interestedRegions")} name="interestedRegions" aria-labelledby="regions-question" aria-describedby="regions-help regions-error" type="multiple" class="grid grid-cols-2 gap-3 md:grid-cols-4">
+                        {#each regionOptions as opt}
+                            <ToggleGroup.Item class="onboarding-choice" value={opt.value}>
+                                <img alt="" class="onboarding-option-image" src={opt.icon} />
+                                <span>{opt.label}</span><Check class="choice-check size-4" aria-hidden="true" />
+                            </ToggleGroup.Item>
+                        {/each}
+                    </ToggleGroup.Root>
+                    <p id="regions-error" class="onboarding-error">{($errors.interestedRegions ?? []).join(' ')}</p>
+                </fieldset>
             </div>
-
-
-            <div class="flex flex-col space-y-4 mt-8">
-                <label for="interestedRegions" class="font-medium text-md sm:text-lg tracking-normal">What regions are you interested in?</label>
-                <ToggleGroup.Root bind:value={$formData.interestedRegions} onValueChange={() => { form.validate("interestedRegions"); }} name="interestedRegions" type="multiple" class="px-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 w-full gap-4">
-                    {#each regionOptions as opt}
-                        <ToggleGroup.Item
-                            class={`py-10 sm:py-12 flex flex-col jusitfy-center items-center border-1 border-border rounded-(--radius)`}
-                            value={opt.value}
-                        >
-                            <img alt={`${opt.label} Icon`} class="object-cover flex-1 w-9 sm:w-11" src={opt.icon} />
-                            <span class="text-xs sm:text-sm">{opt.label}</span>
-                        </ToggleGroup.Item>
-                    {/each}
-                </ToggleGroup.Root>
+            {#if $message?.msg}<p role="alert" class="onboarding-error mt-4">{$message.msg}</p>{/if}
+            <div class="onboarding-actions">
+                <Button type="button" variant="outline" onclick={goBack} disabled={$submitting} class="h-11"><ChevronLeft aria-hidden="true" />Back</Button>
+                <Button disabled={!formValid || $submitting} type="submit" class="h-11">{$submitting ? "Finishing…" : "Finish onboarding"}<ChevronRight aria-hidden="true" /></Button>
             </div>
-        </div>
-        <div class="grid grid-cols-2 gap-12 px-4 pt-8 pb-4">
-            <Button
-                hidden
-                class=""
-                onclick={() => { currentFormId = prevFormId || ONBOARDING_STEP_IDS.academic; }}
-            >
-                <ChevronLeft />
-                <span>Back</span>
-            </Button>
-            <Button
-                disabled={!formValid}
-                class="col-span-2"
-                type="submit"
-            >
-                <span>Continue</span>
-                <ChevronRight />
-            </Button>
-        </div>
-    </form>
+            {#if !formValid}<p class="onboarding-help mt-3">Choose your travel experience, study abroad experience, and at least one region to continue.</p>{/if}
+        </form>
+    </Card.Content>
 </Card.Root>

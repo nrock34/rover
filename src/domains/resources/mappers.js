@@ -1,4 +1,6 @@
-import { toFiniteNumber, toTitleCase } from "../../core/domain/coerce.js";
+import { objectArray, objectOrNull, toFiniteNumber, toTitleCase } from "../../core/domain/coerce.js";
+import { adaptGraphqlConnection } from "../../core/graphql/connection.js";
+import { RESOURCE_ROOTS } from "./graphql.js";
 import { sanitizeLegacyHtml, sanitizeUrl } from "../../core/security/html.js";
 
 /** @type {Readonly<Record<string, string>>} */
@@ -94,8 +96,9 @@ function extractContentUrl(value, apiUrl) {
 export function mapResourceCard(resource, { apiUrl }) {
 	const category = mapCategory(typeof resource.category === "string" ? resource.category : "uncategorized");
 	const type = typeof resource.type === "string" ? resource.type.toLowerCase() : "pdf";
+	const id = typeof resource.id === "string" ? resource.id : "";
 	return {
-		id: toFiniteNumber(resource.id),
+		id,
 		title: typeof resource.title === "string" ? resource.title : "",
 		description: typeof resource.description === "string" ? resource.description : "",
 		category: category.key,
@@ -117,11 +120,11 @@ export function mapResourceCard(resource, { apiUrl }) {
 				.map((tag) => (tag && typeof tag === "object" && typeof tag.name === "string") ? tag.name : "")
 				.filter(Boolean)
 			: [],
-		featured: false,
-		downloads: null,
-		size: null,
-		lastUpdated: null,
-		href: `/resources/${toFiniteNumber(resource.id)}`,
+		featured: Boolean(resource.featured),
+		downloads: typeof resource.downloads === "number" ? resource.downloads : null,
+		size: typeof resource.size === "string" ? resource.size : null,
+		lastUpdated: typeof resource.updated_at === "string" ? resource.updated_at : null,
+		href: `/resources/${encodeURIComponent(id)}`,
 		primaryActionLabel: getResourcePrimaryActionLabel(type)
 	};
 }
@@ -149,4 +152,52 @@ export function mapResourceDetail(resource, { apiUrl }) {
 		pageContent,
 		contentUrl
 	};
+}
+
+/**
+ * @param {unknown} value
+ * @param {(typeof RESOURCE_ROOTS)[number]} root
+ * @returns {Record<string, unknown>}
+ */
+export function adaptGraphqlResource(value, root) {
+	const resource = objectOrNull(value) ?? {};
+	const author = objectOrNull(resource.author);
+	const genericCategory = typeof resource.category === "string" ? resource.category.toLowerCase() : "";
+	const category = root.category ?? (genericCategory || "resources");
+	const genericType = typeof resource.type === "string" ? resource.type.toLowerCase() : "";
+	const type = root.type ?? (genericType || (resource.page_content ? "page" : "pdf"));
+	const content = typeof resource.content_url === "string" && resource.content_url
+		? resource.content_url
+		: typeof resource.content === "string"
+			? resource.content
+			: typeof resource.body === "string"
+				? resource.body
+				: null;
+	const pageContent = typeof resource.page_content === "string"
+		? resource.page_content
+		: type === "page" && typeof resource.body === "string"
+			? resource.body
+			: null;
+	return {
+		...resource,
+		id: resource.documentId,
+		category,
+		type,
+		content,
+		page_content: pageContent,
+		author: author ? { ...author, id: author.documentId } : null,
+		tags: objectArray(resource.tags).map((tag) => ({ ...tag, id: tag.documentId })),
+		rating: Number(resource.rating) || 0,
+		views: Number(resource.views) || 0,
+		thumbnail: typeof resource.thumbnail === "string" ? resource.thumbnail : "",
+		updated_at: resource.updatedAt
+	};
+}
+
+/**
+ * @param {unknown} value
+ * @param {(typeof RESOURCE_ROOTS)[number]} root
+ */
+export function adaptResourceConnection(value, root) {
+	return adaptGraphqlConnection(value, "items", (node) => adaptGraphqlResource(node, root));
 }
