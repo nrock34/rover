@@ -1,8 +1,11 @@
 node_modules
 .stfolder
+.stignore
 
 # Output
-docs
+
+/docs
+!/docs/commit-workflow.md
 .output
 output
 .vercel
