@@ -1,8 +1,0 @@
-/output
-/node_modules
-/.svelte-kit
-/.wrangler
-.env
-.env.*
-!.env.example
-!.env.test
